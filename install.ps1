@@ -7,7 +7,7 @@
 #   .\install.ps1 -Reset     # stop and DELETE all data (volumes)
 # ─────────────────────────────────────────────────────────────────────────────
 [CmdletBinding()]
-param([switch]$Rebuild, [switch]$Down, [switch]$Reset, [switch]$NoBuild)
+param([switch]$Rebuild, [switch]$Down, [switch]$Reset, [switch]$NoBuild, [switch]$Prod)
 
 $ErrorActionPreference = "Stop"
 Set-Location -Path $PSScriptRoot
@@ -17,8 +17,14 @@ function Ok($m)  { Write-Host "✓ $m" -ForegroundColor Green }
 function Warn($m){ Write-Host "! $m" -ForegroundColor Yellow }
 function Fail($m){ Write-Host "✗ $m" -ForegroundColor Red; exit 1 }
 
+# ── Ensure Docker (auto-install Docker Desktop via winget if missing) ────────
 if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
-    Fail "Docker is not installed. Get Docker Desktop: https://docs.docker.com/get-docker/"
+    Warn "Docker not found"
+    if (Get-Command winget -ErrorAction SilentlyContinue) {
+        Info "Installing Docker Desktop via winget…"
+        winget install -e --id Docker.DockerDesktop --silent --accept-package-agreements --accept-source-agreements
+    }
+    Fail "Docker Desktop installed/needed — start Docker Desktop, then re-run .\install.ps1"
 }
 try { docker info *> $null } catch { Fail "Docker daemon is not running. Start Docker Desktop and retry." }
 
@@ -26,7 +32,11 @@ $Compose = "docker compose"
 try { docker compose version *> $null } catch {
     if (Get-Command docker-compose -ErrorAction SilentlyContinue) { $Compose = "docker-compose" } else { Fail "Docker Compose not found." }
 }
-function Invoke-Compose([string]$ArgString) { Invoke-Expression "$Compose $ArgString" }
+
+# Production overlay
+$Cf = "-f docker-compose.yml"
+if ($Prod -and (Test-Path "docker-compose.prod.yml")) { $Cf = "$Cf -f docker-compose.prod.yml" }
+function Invoke-Compose([string]$ArgString) { Invoke-Expression "$Compose $Cf $ArgString" }
 
 if ($Down)  { Info "Stopping StorageHub…"; Invoke-Compose "down"; Ok "Stopped."; exit 0 }
 if ($Reset) {
