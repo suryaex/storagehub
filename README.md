@@ -88,6 +88,40 @@ New-NetFirewallRule -DisplayName "StorageHub" -Direction Inbound -LocalPort 80 -
 
 ---
 
+## 🖧 Production deploy (bare-metal Linux, no Docker)
+
+One script installs **everything** and wires up the full stack natively — system
+packages, **MySQL/MariaDB** (creates the DB + user), Node.js LTS, the backend venv,
+the frontend build, an **Nginx reverse proxy**, and a **systemd** service for the API.
+
+```bash
+git clone https://github.com/suryaex/storagehub.git
+cd storagehub
+sudo bash deployment/deploy-prod.sh                       # uses the machine IP
+# with a domain:
+SERVER_NAME=storage.example.com sudo bash deployment/deploy-prod.sh
+```
+
+Supports Ubuntu 20.04–25.04 · Debian 11–13 · Mint / Pop!_OS / elementary ·
+Fedora / RHEL / Rocky / Alma · openSUSE · Arch.
+
+Re-deploy after pulling changes, and add HTTPS:
+```bash
+./deployment/deploy-prod.sh --update                      # git pull + rebuild + restart
+sudo certbot --nginx -d storage.example.com               # Let's Encrypt TLS
+```
+
+| Path | Purpose |
+|------|---------|
+| `deployment/deploy-prod.sh` | full installer / updater |
+| `deployment/nginx-site.conf` | Nginx site template (SPA + `/api` + `/docs`) |
+| `deployment/storagehub-backend.service` | systemd unit (uvicorn) |
+
+The backend runs on `127.0.0.1:8000` behind Nginx; logs via
+`sudo journalctl -u storagehub-backend -f`.
+
+---
+
 ## ✨ Features
 
 | Area | Highlights |
