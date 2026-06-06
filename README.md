@@ -25,8 +25,10 @@ mobile, tablet, and desktop.
 ## ⚡ Install in one command
 
 > Requires only **Docker** + **Docker Compose**. The installer generates a `.env`
-> with secure random secrets, builds all images, starts the stack, and waits until
-> the backend is healthy.
+> with secure random secrets, **auto-detects your LAN IP**, builds all images,
+> starts the stack behind an **Nginx reverse proxy** (port 80), and waits until the
+> backend is healthy. All Python/Node libraries are installed automatically **inside
+> the containers** — nothing else to install on the host.
 
 **Linux / macOS**
 ```bash
@@ -48,24 +50,41 @@ cd storagehub
 make install
 ```
 
-When it finishes:
+When it finishes, the installer prints both URLs:
 
-| What       | URL                       |
-|------------|---------------------------|
-| 🖥️ App      | http://localhost          |
-| 📚 API docs | http://localhost/docs     |
+| What                | URL                          |
+|---------------------|------------------------------|
+| 🖥️ This machine      | http://localhost             |
+| 🌐 On the network    | http://&lt;your-LAN-IP&gt;   (open from phones / other PCs) |
+| 📚 API docs          | http://localhost/docs        |
 
 **First login:** with no OAuth configured, click **“Continue (Local Dev)”** on the
 sign-in screen. The **first account created becomes an admin** automatically.
 
 ### Installer commands
 ```bash
-./install.sh            # build + start
+./install.sh            # build + start (auto LAN config)
 ./install.sh --rebuild  # rebuild images from scratch
 ./install.sh --down     # stop the stack
 ./install.sh --reset    # stop and DELETE all data (DB + files)
 ```
 Windows equivalents: `.\install.ps1 -Rebuild | -Down | -Reset`
+
+### 🌐 Run on your local network (LAN)
+
+The stack already includes an **Nginx reverse proxy**, and the installer writes your
+detected LAN IP into `.env` (`FRONTEND_URL`, `BACKEND_URL`, `CORS_ORIGINS`). Other
+devices on the same network can reach it at `http://<your-LAN-IP>`.
+
+If they can't connect, allow inbound **TCP port 80** in your firewall:
+```bash
+# Linux (ufw)
+sudo ufw allow 80/tcp
+```
+```powershell
+# Windows
+New-NetFirewallRule -DisplayName "StorageHub" -Direction Inbound -LocalPort 80 -Protocol TCP -Action Allow
+```
 
 ---
 
@@ -164,8 +183,28 @@ Fill the matching `*_CLIENT_ID` / `*_CLIENT_SECRET` in `.env`, then restart:
 
 ## 🛠️ Manual / Local Development
 
+> Prefer Docker. Use this only if you want to run backend/frontend directly on the host.
+
+### Install all dependencies (and repair broken ones)
+
+These scripts install **every** Python (pip) and Node (npm) library the project needs —
+installing missing ones, and repairing corrupted installs. They also auto-install
+Python/Node themselves if absent (via apt/dnf/pacman/brew, or winget on Windows).
+
+```bash
+# Linux / macOS
+./scripts/setup-deps.sh              # install everything
+./scripts/setup-deps.sh --repair     # force clean reinstall + fix broken packages
+```
+```powershell
+# Windows
+.\scripts\setup-deps.ps1             # install everything
+.\scripts\setup-deps.ps1 -Repair     # force clean reinstall + fix broken packages
+```
+Flags: `--backend-only` / `--frontend-only` (`-BackendOnly` / `-FrontendOnly` on Windows).
+
 <details>
-<summary>Run backend + frontend without Docker</summary>
+<summary>Then run backend + frontend without Docker</summary>
 
 ### Database
 ```bash
@@ -176,19 +215,16 @@ mysql -u root -p storagehub < database/seeds/seed.sql
 ### Backend
 ```bash
 cd backend
-python -m venv .venv
-source .venv/bin/activate          # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+source .venv/bin/activate          # venv created by setup-deps  (Win: .venv\Scripts\activate)
 export DATABASE_URL="mysql+pymysql://storagehub:storagehub@localhost:3306/storagehub"
 export SECRET_KEY="dev-secret" ALLOW_LOCAL_LOGIN=true STORAGE_ROOT="../storage"
-uvicorn app.main:app --reload --port 8000     # docs: http://localhost:8000/docs
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000   # docs: http://localhost:8000/docs
 ```
 
 ### Frontend
 ```bash
 cd frontend
-npm install
-npm run dev                          # http://localhost:5173 (proxies /api → :8000)
+npm run dev -- --host                # --host exposes it on the LAN (proxies /api → :8000)
 ```
 </details>
 
