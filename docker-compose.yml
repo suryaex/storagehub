@@ -1,0 +1,94 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: storagehub-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-storagehub}
+      MYSQL_USER: ${MYSQL_USER:-storagehub}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-storagehub}
+    command: --default-authentication-plugin=caching_sha2_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./database/seeds/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${MYSQL_ROOT_PASSWORD:-rootpassword}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - storagehub
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: storagehub-backend
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: mysql+pymysql://${MYSQL_USER:-storagehub}:${MYSQL_PASSWORD:-storagehub}@mysql:3306/${MYSQL_DATABASE:-storagehub}
+      SECRET_KEY: ${SECRET_KEY:-change-me}
+      STORAGE_ROOT: /data/storage
+      ALLOW_LOCAL_LOGIN: ${ALLOW_LOCAL_LOGIN:-true}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+      BACKEND_URL: ${BACKEND_URL:-http://localhost:8000}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost,http://localhost:5173}
+      DEFAULT_USER_QUOTA: ${DEFAULT_USER_QUOTA:-10737418240}
+      MAX_UPLOAD_SIZE: ${MAX_UPLOAD_SIZE:-53687091200}
+      UPLOAD_CHUNK_SIZE: ${UPLOAD_CHUNK_SIZE:-8388608}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-}
+      MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET:-}
+      MICROSOFT_TENANT: ${MICROSOFT_TENANT:-common}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      OIDC_DISCOVERY_URL: ${OIDC_DISCOVERY_URL:-}
+    volumes:
+      - storage_data:/data/storage
+    expose:
+      - "8000"
+    networks:
+      - storagehub
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: /api/v1
+    container_name: storagehub-frontend
+    restart: unless-stopped
+    expose:
+      - "80"
+    networks:
+      - storagehub
+
+  nginx:
+    image: nginx:alpine
+    container_name: storagehub-nginx
+    restart: unless-stopped
+    depends_on:
+      - backend
+      - frontend
+    ports:
+      - "80:80"
+    volumes:
+      - ./deployment/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - storagehub
+
+volumes:
+  mysql_data:
+  storage_data:
+
+networks:
+  storagehub:
+    driver: bridge

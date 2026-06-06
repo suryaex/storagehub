@@ -1,0 +1,99 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #f5f7fa;
+  --surface: rgba(255, 255, 255, 0.65);
+  --surface-strong: rgba(255, 255, 255, 0.82);
+  --border: rgba(255, 255, 255, 0.5);
+  --text: #111827;
+  --text-soft: #6b7280;
+}
+
+.dark {
+  --bg: #0f1115;
+  --surface: rgba(25, 28, 34, 0.7);
+  --surface-strong: rgba(35, 39, 48, 0.86);
+  --border: rgba(255, 255, 255, 0.08);
+  --text: #ffffff;
+  --text-soft: #c7cdd8;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply font-sans antialiased;
+    color: var(--text);
+    background: var(--bg);
+    background-image:
+      radial-gradient(1200px 600px at 10% -10%, rgba(58, 147, 255, 0.18), transparent 60%),
+      radial-gradient(1000px 500px at 100% 0%, rgba(0, 122, 255, 0.12), transparent 55%);
+    background-attachment: fixed;
+  }
+}
+
+@layer components {
+  .glass {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    @apply shadow-glass;
+  }
+  .glass-strong {
+    background: var(--surface-strong);
+    border: 1px solid var(--border);
+    backdrop-filter: blur(30px) saturate(180%);
+    -webkit-backdrop-filter: blur(30px) saturate(180%);
+    @apply shadow-glass-lg;
+  }
+  .card {
+    @apply glass rounded-lg p-5 transition-all duration-std;
+  }
+  .text-soft {
+    color: var(--text-soft);
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-md px-4 py-2.5
+           text-sm font-medium transition-all duration-fast select-none;
+    min-height: 44px;
+  }
+  .btn-primary {
+    @apply btn bg-accent text-white hover:bg-accent-soft active:scale-[0.98]
+           shadow-soft;
+  }
+  .btn-ghost {
+    @apply btn text-soft hover:bg-black/5 dark:hover:bg-white/10;
+  }
+  .btn-glass {
+    @apply btn glass hover:bg-white/80 dark:hover:bg-white/10;
+  }
+  .input {
+    @apply w-full rounded-md border border-black/10 dark:border-white/10
+           bg-white/70 dark:bg-white/5 px-3.5 py-2.5 text-sm outline-none
+           transition focus:ring-2 focus:ring-accent/50;
+  }
+  .nav-item {
+    @apply flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium
+           text-soft transition-all duration-fast hover:bg-black/5 dark:hover:bg-white/10;
+  }
+  .nav-item-active {
+    @apply bg-accent/10 text-accent;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(120, 120, 120, 0.35);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}

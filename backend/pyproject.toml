@@ -1,0 +1,13 @@
+[project]
+name = "storagehub-backend"
+version = "1.0.0"
+description = "StorageHub — self-hosted file storage platform (FastAPI backend)"
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

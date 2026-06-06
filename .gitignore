@@ -1,0 +1,30 @@
+# ── Python ──
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+*.log
+
+# ── Node / Frontend ──
+node_modules/
+dist/
+.vite/
+*.local
+
+# ── Runtime storage (do not commit user files) ──
+storage/users/
+storage/shared/
+storage/trash/
+storage/temp/
+data/
+
+# ── DB ──
+*.sqlite3
+
+# ── Editor / OS ──
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
