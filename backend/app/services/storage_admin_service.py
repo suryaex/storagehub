@@ -10,6 +10,7 @@ from app.models.storage_node import StorageNode
 from app.repositories.cloud_repository import CloudRepository
 from app.repositories.node_repository import NodeRepository
 from app.services import storage_info_service as sinfo
+from app.utils import raid as raidutil
 
 _NODE_TYPES = {"local", "remote", "s3", "webdav"}
 _STORAGE_TYPES = {"auto", "ssd", "hdd", "nvme", "raid"}
@@ -41,9 +42,40 @@ class StorageAdminService:
     def _node(n: StorageNode) -> dict:
         return {
             "id": n.id, "name": n.name, "node_type": n.node_type, "location": n.location,
-            "storage_type": n.storage_type, "raid_level": n.raid_level, "status": n.status,
+            "storage_type": n.storage_type, "raid_level": n.raid_level,
+            "raid_devices": n.raid_devices, "status": n.status,
             "capacity_bytes": n.capacity_bytes, "used_bytes": n.used_bytes,
             "is_primary": n.is_primary, "created_at": n.created_at,
+        }
+
+    def configure_raid(self, node_id: int, raid_level: str, devices: list[str]) -> dict:
+        """Validate + store a RAID configuration and return the mdadm command to run."""
+        node = self.nodes.get(node_id)
+        if not node:
+            raise NotFound("Node not found")
+        try:
+            raidutil.validate(raid_level, devices)
+        except ValueError as exc:
+            raise ValidationError(str(exc)) from exc
+
+        clean = [d.strip() for d in devices if d.strip()]
+        node.raid_level = raid_level
+        node.raid_devices = ",".join(clean) if clean else None
+        node.storage_type = "raid" if raid_level not in ("none",) else node.storage_type
+        cmd = raidutil.mdadm_command(raid_level, clean)
+        self.db.commit()
+
+        if raid_level == "none":
+            instructions = "RAID disabled for this node."
+        else:
+            instructions = (
+                "Run the command below on the node as root to build the array, then "
+                "format & mount it (or use scripts/setup-raid.sh). This app does not "
+                "execute destructive disk operations for you."
+            )
+        return {
+            "node": self._node(node), "raid_level": raid_level, "devices": clean,
+            "mdadm_command": cmd, "instructions": instructions,
         }
 
     def list_nodes(self) -> list[dict]:

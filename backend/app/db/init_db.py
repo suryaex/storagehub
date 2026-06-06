@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 
-from sqlalchemy import select
+from sqlalchemy import inspect, select, text
 
 from app.core.config import settings as app_settings
 from app.core.constants import DEFAULT_SETTINGS
@@ -22,7 +22,23 @@ logger = logging.getLogger(__name__)
 
 def create_tables() -> None:
     Base.metadata.create_all(bind=engine)
+    _ensure_columns()
     logger.info("Database tables ensured")
+
+
+def _ensure_columns() -> None:
+    """Lightweight additive migration for columns added after first release."""
+    try:
+        inspector = inspect(engine)
+        if "storage_nodes" not in inspector.get_table_names():
+            return
+        cols = {c["name"] for c in inspector.get_columns("storage_nodes")}
+        if "raid_devices" not in cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE storage_nodes ADD COLUMN raid_devices TEXT"))
+            logger.info("Added storage_nodes.raid_devices column")
+    except Exception:  # pragma: no cover
+        logger.exception("Column-ensure migration skipped")
 
 
 def seed_defaults() -> None:

@@ -52,6 +52,19 @@ def run():
         clist = c.get("/api/v1/admin/cloud-targets", headers=H).json()["data"]
         print("cloud targets:", [t["name"] for t in clist])
 
+        # RAID config: valid
+        raid = c.post(f"/api/v1/admin/nodes/{nid}/raid", headers=H,
+                      json={"raid_level": "raid1", "devices": ["/dev/sdb", "/dev/sdc"]})
+        assert raid.status_code == 200, raid.text
+        cmd = raid.json()["data"]["mdadm_command"]
+        assert "mdadm --create" in cmd and "--level=1" in cmd, cmd
+        print("raid cmd:", cmd)
+        # RAID config: invalid (raid5 needs >=3)
+        bad = c.post(f"/api/v1/admin/nodes/{nid}/raid", headers=H,
+                     json={"raid_level": "raid5", "devices": ["/dev/sdb"]})
+        assert bad.status_code == 422, f"expected 422, got {bad.status_code}"
+        print("raid validation rejected bad config:", bad.json()["error"]["code"])
+
         c.delete(f"/api/v1/admin/nodes/{nid}", headers=H)
         print("STORAGE SMOKE OK")
 

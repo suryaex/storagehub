@@ -116,6 +116,14 @@ export const adminService = {
     unwrap<StorageNode>(api.patch(`/admin/nodes/${id}`, p)),
   setPrimaryNode: (id: number) => api.post(`/admin/nodes/${id}/primary`),
   deleteNode: (id: number) => api.delete(`/admin/nodes/${id}`),
+  configureRaid: (id: number, p: { raid_level: string; devices: string[] }) =>
+    unwrap<{
+      node: StorageNode;
+      raid_level: string;
+      devices: string[];
+      mdadm_command: string;
+      instructions: string;
+    }>(api.post(`/admin/nodes/${id}/raid`, p)),
 
   listClouds: () => unwrap<CloudTarget[]>(api.get("/admin/cloud-targets")),
   createCloud: (p: CloudInput) => unwrap<CloudTarget>(api.post("/admin/cloud-targets", p)),

@@ -124,6 +124,44 @@ The backend runs on `127.0.0.1:8000` behind Nginx; logs via
 
 ---
 
+## 🌐 Separate storage nodes (multi-node)
+
+A **node** runs only the **backend** (API + storage) — the frontend lives on the
+main server. Nodes use a local **SQLite** DB, so there's **no MySQL/Node.js/Nginx**
+to install. Setup is one command.
+
+**On the node machine:**
+```bash
+git clone https://github.com/suryaex/storagehub.git
+cd storagehub
+sudo bash deployment/deploy-node.sh
+# custom storage path / port:
+STORAGE_ROOT=/mnt/raid NODE_PORT=8001 sudo bash deployment/deploy-node.sh
+```
+This installs the backend, creates a `storagehub-node` systemd service listening on
+`0.0.0.0:<port>`, and prints the node URL (e.g. `http://192.168.1.60:8000`).
+
+**On the main server** register it: **Admin → Storage & Nodes → Add node**
+- type = `remote`
+- location = `http://<node-ip>:8000`
+
+### Configure RAID on a node (or the main system)
+
+From **Admin → Storage & Nodes → Nodes → RAID**, pick a level (raid0/1/5/6/10) and
+list the devices. StorageHub validates it and returns the exact `mdadm` command to
+run on that machine. To actually build the array, use the helper:
+
+```bash
+sudo bash scripts/setup-raid.sh --level raid1 --devices "/dev/sdb /dev/sdc" --mount /var/lib/storagehub-node
+```
+It creates the array with `mdadm`, formats ext4, mounts it, and persists it to
+`/etc/fstab`. Then point that node's `STORAGE_ROOT` at the mount and restart it.
+
+> Storage **type (SSD/HDD/NVMe)** and live **RAID status** are auto-detected and shown
+> in the Storage tab on Linux.
+
+---
+
 ## ✨ Features
 
 | Area | Highlights |

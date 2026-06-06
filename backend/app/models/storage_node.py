@@ -20,6 +20,7 @@ class StorageNode(Base, TimestampMixin):
         Enum("auto", "ssd", "hdd", "nvme", "raid"), default="auto", nullable=False
     )
     raid_level: Mapped[str] = mapped_column(String(20), default="none", nullable=False)
+    raid_devices: Mapped[str | None] = mapped_column(Text, nullable=True)  # comma-separated
     status: Mapped[str] = mapped_column(
         Enum("online", "offline", "degraded", "unknown"), default="unknown", nullable=False
     )

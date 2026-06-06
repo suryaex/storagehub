@@ -255,6 +255,7 @@ CREATE TABLE IF NOT EXISTS storage_nodes (
     location TEXT NOT NULL,
     storage_type ENUM('auto','ssd','hdd','nvme','raid') NOT NULL DEFAULT 'auto',
     raid_level VARCHAR(20) NOT NULL DEFAULT 'none',
+    raid_devices TEXT NULL,
     status ENUM('online','offline','degraded','unknown') NOT NULL DEFAULT 'unknown',
     capacity_bytes BIGINT UNSIGNED NOT NULL DEFAULT 0,
     used_bytes BIGINT UNSIGNED NOT NULL DEFAULT 0,
