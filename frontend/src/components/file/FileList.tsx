@@ -14,8 +14,8 @@ interface Props {
 
 export function FileList({ folders, files, onOpenFolder, onFolderAction, onFileAction }: Props) {
   return (
-    <div className="glass overflow-hidden rounded-lg">
-      <div className="hidden grid-cols-[1fr_120px_160px_40px] gap-3 border-b border-black/5 px-4 py-2.5 text-xs font-medium text-soft dark:border-white/10 sm:grid">
+    <div className="glass rounded-lg">
+      <div className="hidden grid-cols-[1fr_120px_160px_40px] gap-3 rounded-t-lg border-b border-black/5 px-4 py-2.5 text-xs font-medium text-soft dark:border-white/10 sm:grid">
         <span>Name</span>
         <span>Size</span>
         <span>Modified</span>
