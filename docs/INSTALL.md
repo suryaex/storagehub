@@ -32,6 +32,23 @@ Manage it:
 
 ---
 
+## 0b. Bare-metal production (Linux, no Docker)
+
+Installs system packages, MySQL/MariaDB (DB + user), Node, backend venv, frontend
+build, Nginx reverse proxy, and a systemd service — all in one command:
+
+```bash
+sudo bash deployment/deploy-prod.sh
+# with a domain:
+SERVER_NAME=storage.example.com sudo bash deployment/deploy-prod.sh
+# re-deploy after changes:
+./deployment/deploy-prod.sh --update
+```
+
+Supports Ubuntu/Debian/Mint/Pop!_OS, Fedora/RHEL/Rocky/Alma, openSUSE, and Arch.
+
+---
+
 ## A. Docker Compose (manual)
 
 ### Prerequisites

@@ -1,0 +1,6 @@
+# Keep shell scripts LF so they run on Linux regardless of host OS
+*.sh        text eol=lf
+*.bash      text eol=lf
+# Templates consumed by Linux tooling
+*.service   text eol=lf
+*.conf      text eol=lf
