@@ -15,6 +15,7 @@ import {
   adminService,
   type CloudInput,
   type NodeInput,
+  type StorageNode,
 } from "@/services/adminService";
 import { Modal } from "@/components/common/Modal";
 import { Spinner } from "@/components/feedback/LoadingScreen";
@@ -51,6 +52,10 @@ export function StoragePanel() {
   const [cloudOpen, setCloudOpen] = useState(false);
   const [nodeForm, setNodeForm] = useState<NodeInput>(NODE_DEFAULT);
   const [cloudForm, setCloudForm] = useState<CloudInput>(CLOUD_DEFAULT);
+  const [raidNode, setRaidNode] = useState<StorageNode | null>(null);
+  const [raidLevel, setRaidLevel] = useState("raid1");
+  const [raidDevices, setRaidDevices] = useState("");
+  const [raidResult, setRaidResult] = useState<string | null>(null);
 
   const overview = useQuery({ queryKey: ["admin-storage"], queryFn: adminService.storageOverview });
   const nodes = useQuery({ queryKey: ["admin-nodes"], queryFn: adminService.listNodes });
@@ -82,6 +87,29 @@ export function StoragePanel() {
       toast("Node added", "success");
       setNodeOpen(false);
       setNodeForm(NODE_DEFAULT);
+      refresh();
+    } catch (e) {
+      toast(apiErrorMessage(e), "error");
+    }
+  };
+
+  const openRaid = (n: StorageNode) => {
+    setRaidNode(n);
+    setRaidLevel(n.raid_level !== "none" ? n.raid_level : "raid1");
+    setRaidDevices(n.raid_devices ?? "");
+    setRaidResult(null);
+  };
+
+  const submitRaid = async () => {
+    if (!raidNode) return;
+    const devices = raidDevices.split(/[\s,]+/).filter(Boolean);
+    try {
+      const res = await adminService.configureRaid(raidNode.id, {
+        raid_level: raidLevel,
+        devices,
+      });
+      setRaidResult(res.mdadm_command || "(RAID disabled for this node)");
+      toast("RAID configuration saved", "success");
       refresh();
     } catch (e) {
       toast(apiErrorMessage(e), "error");
@@ -221,6 +249,12 @@ export function StoragePanel() {
                     </p>
                   )}
                 </div>
+                <button
+                  onClick={() => openRaid(n)}
+                  className="btn-ghost !min-h-0 gap-1 px-2 py-1.5 text-xs"
+                >
+                  <Layers className="h-3.5 w-3.5" /> RAID
+                </button>
                 {!n.is_primary && (
                   <button
                     onClick={() => run(adminService.setPrimaryNode(n.id), "Primary node set")}
@@ -409,6 +443,59 @@ export function StoragePanel() {
             Enable this target
           </label>
         </div>
+      </Modal>
+
+      {/* ── Configure RAID modal ── */}
+      <Modal
+        open={!!raidNode}
+        onClose={() => setRaidNode(null)}
+        title={`Configure RAID — ${raidNode?.name ?? ""}`}
+        footer={
+          raidResult === null ? (
+            <>
+              <button onClick={() => setRaidNode(null)} className="btn-ghost">Cancel</button>
+              <button onClick={submitRaid} className="btn-primary">Save</button>
+            </>
+          ) : (
+            <button onClick={() => setRaidNode(null)} className="btn-primary">Done</button>
+          )
+        }
+      >
+        {raidResult === null ? (
+          <div className="space-y-3">
+            <Field label="RAID level">
+              <select className="input" value={raidLevel} onChange={(e) => setRaidLevel(e.target.value)}>
+                {["none", "raid0", "raid1", "raid5", "raid6", "raid10"].map((r) => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Devices (space or comma separated)">
+              <input className="input" value={raidDevices} placeholder="/dev/sdb /dev/sdc"
+                onChange={(e) => setRaidDevices(e.target.value)} />
+            </Field>
+            <p className="text-xs text-soft">
+              StorageHub validates the level/devices and returns the exact <code>mdadm</code>{" "}
+              command to run on the node — it never erases disks for you.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <p className="text-sm">Run this on the node as root:</p>
+            <div className="flex items-center gap-2 rounded-md border border-black/10 bg-white/50 p-2 dark:border-white/10 dark:bg-white/5">
+              <code className="flex-1 break-all text-xs">{raidResult}</code>
+              <button
+                onClick={() => navigator.clipboard.writeText(raidResult)}
+                className="btn-primary !min-h-0 px-3 py-1.5 text-xs"
+              >
+                Copy
+              </button>
+            </div>
+            <p className="text-xs text-soft">
+              Or use the helper: <code>sudo bash scripts/setup-raid.sh --level {raidLevel} --devices "…" --mount /var/lib/storagehub-node</code>
+            </p>
+          </div>
+        )}
       </Modal>
     </div>
   );

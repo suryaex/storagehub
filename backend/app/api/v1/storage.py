@@ -9,6 +9,7 @@ from app.models.user import User
 from app.schemas.storage import (
     CloudTargetCreate,
     CloudTargetUpdate,
+    RaidConfigRequest,
     StorageNodeCreate,
     StorageNodeUpdate,
 )
@@ -45,6 +46,13 @@ def update_node(node_id: int, payload: StorageNodeUpdate, db: Session = Depends(
 @router.post("/nodes/{node_id}/primary")
 def set_primary(node_id: int, db: Session = Depends(get_db), _: User = Depends(get_admin_user)):
     return success(StorageAdminService(db).set_primary(node_id), "Primary node set")
+
+
+@router.post("/nodes/{node_id}/raid")
+def configure_raid(node_id: int, payload: RaidConfigRequest, db: Session = Depends(get_db),
+                   _: User = Depends(get_admin_user)):
+    result = StorageAdminService(db).configure_raid(node_id, payload.raid_level, payload.devices)
+    return success(result, "RAID configuration saved")
 
 
 @router.delete("/nodes/{node_id}")

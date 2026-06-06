@@ -14,6 +14,7 @@ class StorageNodeResponse(BaseModel):
     location: str
     storage_type: str
     raid_level: str
+    raid_devices: str | None = None
     status: str
     capacity_bytes: int
     used_bytes: int
@@ -35,6 +36,19 @@ class StorageNodeUpdate(BaseModel):
     storage_type: str | None = None
     raid_level: str | None = None
     status: str | None = None
+
+
+class RaidConfigRequest(BaseModel):
+    raid_level: str
+    devices: list[str] = Field(default_factory=list)
+
+
+class RaidConfigResponse(BaseModel):
+    node: StorageNodeResponse
+    raid_level: str
+    devices: list[str]
+    mdadm_command: str
+    instructions: str
 
 
 class CloudTargetResponse(BaseModel):
