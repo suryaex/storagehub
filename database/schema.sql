@@ -247,4 +247,42 @@ CREATE TABLE IF NOT EXISTS trash_items (
     CONSTRAINT fk_trash_items_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- 13. storage_nodes
+CREATE TABLE IF NOT EXISTS storage_nodes (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    name VARCHAR(100) NOT NULL,
+    node_type ENUM('local','remote','s3','webdav') NOT NULL DEFAULT 'local',
+    location TEXT NOT NULL,
+    storage_type ENUM('auto','ssd','hdd','nvme','raid') NOT NULL DEFAULT 'auto',
+    raid_level VARCHAR(20) NOT NULL DEFAULT 'none',
+    status ENUM('online','offline','degraded','unknown') NOT NULL DEFAULT 'unknown',
+    capacity_bytes BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    used_bytes BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    is_primary BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_storage_nodes_name (name),
+    KEY idx_storage_nodes_primary (is_primary)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 14. cloud_targets
+CREATE TABLE IF NOT EXISTS cloud_targets (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    name VARCHAR(100) NOT NULL,
+    provider ENUM('s3','webdav','gdrive','dropbox') NOT NULL,
+    endpoint TEXT NULL,
+    bucket VARCHAR(255) NULL,
+    access_key VARCHAR(255) NULL,
+    secret_key VARCHAR(255) NULL,
+    sync_mode ENUM('backup','mirror') NOT NULL DEFAULT 'backup',
+    enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    status VARCHAR(30) NOT NULL DEFAULT 'idle',
+    last_sync_at DATETIME NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_cloud_targets_name (name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 SET FOREIGN_KEY_CHECKS = 1;

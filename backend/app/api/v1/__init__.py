@@ -10,6 +10,7 @@ from app.api.v1 import (
     health,
     search,
     shares,
+    storage,
     trash,
     uploads,
     users,
@@ -26,4 +27,5 @@ api_router.include_router(shares.router, tags=["shares"])
 api_router.include_router(search.router, prefix="/search", tags=["search"])
 api_router.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
 api_router.include_router(admin.router, prefix="/admin", tags=["admin"])
+api_router.include_router(storage.router, prefix="/admin", tags=["admin"])
 api_router.include_router(trash.router, prefix="/trash", tags=["trash"])
