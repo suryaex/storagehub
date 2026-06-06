@@ -256,22 +256,6 @@ CI builds the backend and frontend on every push — see [`.github/workflows/ci.
 
 ---
 
-## 🚀 Push to GitHub
-
-```bash
-cd storagehub
-git init
-git add .
-git commit -m "Initial commit: StorageHub"
-git branch -M main
-git remote add origin https://github.com/<your-username>/storagehub.git
-git push -u origin main
-```
-
-`.gitignore` already excludes `node_modules/`, `.venv/`, `.env`, and runtime storage.
-
----
-
 ## 🗺️ Roadmap
 
 - **V1** (this): OAuth, explorer, upload/download, sharing, search, trash, admin.
