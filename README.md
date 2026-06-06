@@ -30,7 +30,7 @@ mobile, tablet, and desktop.
 
 **Linux / macOS**
 ```bash
-git clone https://github.com/<your-username>/storagehub.git
+git clone https://github.com/suryaex/storagehub.git
 cd storagehub
 chmod +x install.sh
 ./install.sh
@@ -38,7 +38,7 @@ chmod +x install.sh
 
 **Windows (PowerShell)**
 ```powershell
-git clone https://github.com/<your-username>/storagehub.git
+git clone https://github.com/suryaex/storagehub.git
 cd storagehub
 .\install.ps1
 ```
