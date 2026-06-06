@@ -20,6 +20,69 @@ export interface ActivityLog {
   created_at: string;
 }
 
+export interface RaidArray {
+  name: string;
+  state: string;
+  level: string;
+  members: string[];
+}
+
+export interface HostStorage {
+  platform: string;
+  storage_root: string;
+  device: string | null;
+  mount: string | null;
+  filesystem: string | null;
+  media: { type: string; rotational: number | null; model: string | null; block: string | null };
+  usage: { total_bytes: number; used_bytes: number; free_bytes: number };
+  raid: RaidArray[];
+}
+
+export interface StorageNode {
+  id: number;
+  name: string;
+  node_type: string;
+  location: string;
+  storage_type: string;
+  raid_level: string;
+  status: string;
+  capacity_bytes: number;
+  used_bytes: number;
+  is_primary: boolean;
+}
+
+export interface CloudTarget {
+  id: number;
+  name: string;
+  provider: string;
+  endpoint: string | null;
+  bucket: string | null;
+  access_key: string | null;
+  sync_mode: string;
+  enabled: boolean;
+  status: string;
+  last_sync_at: string | null;
+}
+
+export interface NodeInput {
+  name: string;
+  node_type: string;
+  location: string;
+  storage_type: string;
+  raid_level: string;
+}
+
+export interface CloudInput {
+  name: string;
+  provider: string;
+  endpoint?: string;
+  bucket?: string;
+  access_key?: string;
+  secret_key?: string;
+  sync_mode: string;
+  enabled: boolean;
+}
+
 export const adminService = {
   overview: () => unwrap<AdminOverview>(api.get("/admin/overview")),
 
@@ -42,4 +105,21 @@ export const adminService = {
 
   updateSettings: (payload: Record<string, number>) =>
     unwrap<Record<string, string>>(api.patch("/admin/settings", payload)),
+
+  // ── storage / nodes / cloud ──
+  storageOverview: () =>
+    unwrap<{ host: HostStorage; nodes: StorageNode[] }>(api.get("/admin/storage")),
+
+  listNodes: () => unwrap<StorageNode[]>(api.get("/admin/nodes")),
+  createNode: (p: NodeInput) => unwrap<StorageNode>(api.post("/admin/nodes", p)),
+  updateNode: (id: number, p: Partial<NodeInput & { status: string }>) =>
+    unwrap<StorageNode>(api.patch(`/admin/nodes/${id}`, p)),
+  setPrimaryNode: (id: number) => api.post(`/admin/nodes/${id}/primary`),
+  deleteNode: (id: number) => api.delete(`/admin/nodes/${id}`),
+
+  listClouds: () => unwrap<CloudTarget[]>(api.get("/admin/cloud-targets")),
+  createCloud: (p: CloudInput) => unwrap<CloudTarget>(api.post("/admin/cloud-targets", p)),
+  updateCloud: (id: number, p: Partial<CloudInput>) =>
+    unwrap<CloudTarget>(api.patch(`/admin/cloud-targets/${id}`, p)),
+  deleteCloud: (id: number) => api.delete(`/admin/cloud-targets/${id}`),
 };

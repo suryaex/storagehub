@@ -6,6 +6,7 @@ import { useAuthStore } from "@/store/authStore";
 import { PageHeader } from "@/components/common/PageHeader";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { PromptModal } from "@/components/common/PromptModal";
+import { StoragePanel } from "@/components/admin/StoragePanel";
 import { useToast } from "@/hooks/useToast";
 import { formatBytes, formatRelative, percent } from "@/utils/format";
 import { apiErrorMessage } from "@/services/api";
@@ -15,7 +16,7 @@ export function AdminPage() {
   const qc = useQueryClient();
   const toast = useToast((s) => s.push);
   const me = useAuthStore((s) => s.user);
-  const [tab, setTab] = useState<"users" | "logs">("users");
+  const [tab, setTab] = useState<"users" | "logs" | "storage">("users");
   const [quotaTarget, setQuotaTarget] = useState<User | null>(null);
 
   const isAdmin = me?.role === "admin";
@@ -90,19 +91,25 @@ export function AdminPage() {
         ))}
       </div>
 
-      <div className="mb-3 flex gap-2">
-        {(["users", "logs"] as const).map((t) => (
+      <div className="mb-3 flex flex-wrap gap-2">
+        {([
+          { key: "users", label: "Users" },
+          { key: "storage", label: "Storage & Nodes" },
+          { key: "logs", label: "Activity Logs" },
+        ] as const).map((t) => (
           <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`rounded-md px-4 py-2 text-sm font-medium capitalize ${
-              tab === t ? "bg-accent/15 text-accent" : "text-soft"
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={`rounded-md px-4 py-2 text-sm font-medium ${
+              tab === t.key ? "bg-accent/15 text-accent" : "text-soft"
             }`}
           >
-            {t === "users" ? "Users" : "Activity Logs"}
+            {t.label}
           </button>
         ))}
       </div>
+
+      {tab === "storage" && <StoragePanel />}
 
       {tab === "users" && (
         <div className="glass overflow-x-auto rounded-lg">
