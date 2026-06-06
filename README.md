@@ -24,11 +24,12 @@ mobile, tablet, and desktop.
 
 ## ⚡ Install in one command
 
-> Requires only **Docker** + **Docker Compose**. The installer generates a `.env`
-> with secure random secrets, **auto-detects your LAN IP**, builds all images,
-> starts the stack behind an **Nginx reverse proxy** (port 80), and waits until the
-> backend is healthy. All Python/Node libraries are installed automatically **inside
-> the containers** — nothing else to install on the host.
+> On Linux the installer **auto-installs Docker + Compose if they're missing**
+> (via get.docker.com). It then generates a `.env` with secure random secrets,
+> **auto-detects your LAN IP**, builds all images, starts the stack behind an
+> **Nginx reverse proxy** (port 80), and waits until the backend is healthy. All
+> Python/Node libraries are installed automatically **inside the containers** —
+> nothing else to install on the host. (On Windows/macOS, Docker Desktop is required.)
 
 **Linux / macOS**
 ```bash
@@ -64,11 +65,12 @@ sign-in screen. The **first account created becomes an admin** automatically.
 ### Installer commands
 ```bash
 ./install.sh            # build + start (auto LAN config)
+./install.sh --prod     # production overlay: restart=always + log rotation
 ./install.sh --rebuild  # rebuild images from scratch
 ./install.sh --down     # stop the stack
 ./install.sh --reset    # stop and DELETE all data (DB + files)
 ```
-Windows equivalents: `.\install.ps1 -Rebuild | -Down | -Reset`
+Windows equivalents: `.\install.ps1 -Prod | -Rebuild | -Down | -Reset`
 
 ### 🌐 Run on your local network (LAN)
 
