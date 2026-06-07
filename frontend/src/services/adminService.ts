@@ -45,6 +45,7 @@ export interface StorageNode {
   location: string;
   storage_type: string;
   raid_level: string;
+  raid_devices: string | null;
   status: string;
   capacity_bytes: number;
   used_bytes: number;
