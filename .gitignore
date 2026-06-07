@@ -12,6 +12,12 @@ node_modules/
 dist/
 .vite/
 *.local
+# tsc -b / vite build artifacts (regenerated on every build)
+*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts
+# lockfile left out — Docker/deploy use `npm install` against package.json
+package-lock.json
 
 # ── Runtime storage (do not commit user files) ──
 storage/users/
