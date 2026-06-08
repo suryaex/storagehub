@@ -1,14 +1,27 @@
-fastapi==0.111.0
-uvicorn[standard]==0.30.1
-SQLAlchemy==2.0.30
-alembic==1.13.1
-PyMySQL==1.1.1
-cryptography==42.0.8
-pydantic==2.7.4
-pydantic-settings==2.3.4
-python-multipart==0.0.9
-PyJWT==2.8.0
-passlib[bcrypt]==1.7.4
-httpx==0.27.0
-python-dotenv==1.0.1
-email-validator==2.1.1
+# StorageHub Controller — Python dependencies
+# Version ranges kept COMPATIBLE with the SecureOps controller so both
+# projects share a similar dependency baseline and can run side by side.
+# Verified on Python 3.10 → 3.13, x86-64 and ARM (aarch64 / armv7).
+
+# Web framework  (shared baseline with SecureOps)
+fastapi>=0.110,<1.0
+uvicorn[standard]>=0.27,<1.0
+python-multipart>=0.0.9,<1.0
+
+# Data layer  (shared baseline with SecureOps)
+SQLAlchemy>=2.0,<3.0
+alembic>=1.13,<2.0
+PyMySQL>=1.1,<2.0
+pydantic>=2.5,<3.0
+pydantic-settings>=2.3,<3.0
+
+# Auth  (same passlib/bcrypt/cryptography pairing as SecureOps)
+PyJWT>=2.8,<3.0
+passlib[bcrypt]>=1.7.4,<2.0
+bcrypt>=4.0,<5.0
+cryptography>=42.0,<45.0
+email-validator>=2.1,<3.0
+
+# HTTP + config
+httpx>=0.25,<1.0
+python-dotenv>=1.0,<2.0

@@ -33,6 +33,10 @@ FRONTEND_ROOT="${FRONTEND_ROOT:-/var/www/storagehub}"
 STORAGE_ROOT="${STORAGE_ROOT:-/var/lib/storagehub}"
 NGINX_SITE="${NGINX_SITE:-storagehub}"
 NODE_VERSION="${NODE_VERSION:-20}"
+# Ports chosen to NOT collide with SecureOps (which owns :80/:443 + backend :8000).
+HTTP_PORT="${HTTP_PORT:-8080}"
+BACKEND_PORT="${BACKEND_PORT:-8010}"
+PORTSFX=""; [[ "$HTTP_PORT" != "80" ]] && PORTSFX=":$HTTP_PORT"
 DB_NAME="${DB_NAME:-storagehub}"
 DB_USER="${DB_USER:-storagehub}"
 SERVICE_USER="${SERVICE_USER:-${SUDO_USER:-$(id -un)}}"
@@ -68,6 +72,11 @@ say "Deploy user (backend service): $SERVICE_USER"
 [[ $EUID -ne 0 ]] && warn "Some steps need sudo — you may be prompted."
 export DEBIAN_FRONTEND=noninteractive
 
+# -------- Detect CPU architecture (x86-64 / ARM) --------
+ARCH="$(uname -m)"
+case "$ARCH" in armv7l|armv6l|armhf) IS_ARM32=1 ;; *) IS_ARM32=0 ;; esac
+say "Architecture: $ARCH  (arm32=$IS_ARM32)"
+
 # -------- 0) Optional: update repo --------
 if [[ "$UPDATE_MODE" == "1" ]]; then
   say "Update mode: pulling latest from git…"
@@ -81,7 +90,7 @@ case "$PKG" in
     sudo apt-get update -y
     sudo apt-get install -y --no-install-recommends \
         python3 python3-venv python3-pip python3-dev \
-        build-essential libffi-dev pkg-config \
+        build-essential libffi-dev libssl-dev pkg-config \
         nginx curl gnupg ca-certificates rsync git
     # MySQL (Ubuntu) with MariaDB fallback (Debian/Mint)
     sudo apt-get install -y mysql-server || sudo apt-get install -y mariadb-server
@@ -89,24 +98,35 @@ case "$PKG" in
   dnf|yum)
     sudo $PKG install -y \
         python3 python3-pip python3-devel \
-        gcc gcc-c++ make libffi-devel pkgconf-pkg-config \
+        gcc gcc-c++ make libffi-devel openssl-devel pkgconf-pkg-config \
         nginx curl gnupg2 ca-certificates rsync git \
         mariadb-server
     ;;
   zypper)
     sudo zypper --non-interactive install \
         python3 python3-pip python3-devel \
-        gcc gcc-c++ make libffi-devel pkg-config \
+        gcc gcc-c++ make libffi-devel libopenssl-devel pkg-config \
         nginx curl gpg2 ca-certificates rsync git \
         mariadb
     ;;
   pacman)
     sudo pacman -Sy --noconfirm \
-        python python-pip base-devel libffi pkgconf \
+        python python-pip base-devel libffi openssl pkgconf \
         nginx curl gnupg ca-certificates rsync git \
         mariadb
     ;;
 esac
+
+# -------- 1b) ARM 32-bit: Rust toolchain so `cryptography` can compile --------
+if [[ "$IS_ARM32" == "1" ]] && ! command -v cargo >/dev/null 2>&1; then
+  say "ARM 32-bit — installing Rust toolchain (needed to build cryptography)…"
+  case "$PKG" in
+    apt)      sudo apt-get install -y cargo rustc ;;
+    dnf|yum)  sudo $PKG install -y cargo rust ;;
+    zypper)   sudo zypper --non-interactive install cargo rust ;;
+    pacman)   sudo pacman -S --noconfirm rust ;;
+  esac
+fi
 
 # -------- 2) Node.js LTS --------
 NEED_NODE=1
@@ -165,9 +185,9 @@ set_env ENVIRONMENT       production
 set_env ALLOW_LOCAL_LOGIN true
 set_env DATABASE_URL      "mysql+pymysql://${DB_USER}:${DB_PASS}@127.0.0.1:3306/${DB_NAME}"
 set_env STORAGE_ROOT      "$STORAGE_ROOT"
-set_env FRONTEND_URL      "http://${PUBLIC_HOST}"
-set_env BACKEND_URL       "http://${PUBLIC_HOST}"
-set_env CORS_ORIGINS      "http://localhost,http://${SERVER_IP}$([[ "$SERVER_NAME" != "_" ]] && echo ",http://${SERVER_NAME}")"
+set_env FRONTEND_URL      "http://${PUBLIC_HOST}${PORTSFX}"
+set_env BACKEND_URL       "http://${PUBLIC_HOST}${PORTSFX}"
+set_env CORS_ORIGINS      "http://localhost${PORTSFX},http://${SERVER_IP}${PORTSFX}$([[ "$SERVER_NAME" != "_" ]] && echo ",http://${SERVER_NAME}${PORTSFX}")"
 chmod 600 "$ENV_FILE"; chown "$SERVICE_USER":"$SERVICE_USER" "$ENV_FILE" 2>/dev/null || true
 
 # -------- 5) Backend venv + deps --------
@@ -190,6 +210,8 @@ say "Installing frontend deps + building…"
 cd "$FRONTEND_DIR"
 export VITE_API_BASE_URL="/api/v1"
 if [[ -f package-lock.json ]]; then npm ci --no-audit --no-fund; else npm install --no-audit --no-fund; fi
+# Low-RAM ARM boards (Pi/Orange Pi) OOM during Vite build — cap heap.
+[[ "$ARCH" == arm* || "$ARCH" == aarch64 ]] && export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=512}"
 npm run build
 
 say "Publishing dist/ → $FRONTEND_ROOT"
@@ -200,7 +222,7 @@ sudo chown -R www-data:www-data "$FRONTEND_ROOT" 2>/dev/null || \
 
 # -------- 8) nginx site --------
 say "Writing nginx site config…"
-RENDERED="$(sed -e "s|{{SERVER_NAME}}|$SERVER_NAME|g" -e "s|{{FRONTEND_ROOT}}|$FRONTEND_ROOT|g" "$SCRIPT_DIR/nginx-site.conf")"
+RENDERED="$(sed -e "s|{{SERVER_NAME}}|$SERVER_NAME|g" -e "s|{{FRONTEND_ROOT}}|$FRONTEND_ROOT|g" -e "s|{{HTTP_PORT}}|$HTTP_PORT|g" -e "s|{{BACKEND_PORT}}|$BACKEND_PORT|g" "$SCRIPT_DIR/nginx-site.conf")"
 if [[ -d /etc/nginx/sites-available ]]; then
   echo "$RENDERED" | sudo tee "/etc/nginx/sites-available/$NGINX_SITE" >/dev/null
   sudo mkdir -p /etc/nginx/sites-enabled
@@ -213,13 +235,24 @@ fi
 if ! grep -rq "include.*sites-enabled\|include.*conf.d" /etc/nginx/nginx.conf 2>/dev/null; then
   sudo sed -i '/http\s*{/a\    include /etc/nginx/conf.d/*.conf;' /etc/nginx/nginx.conf 2>/dev/null || true
 fi
+# SELinux/firewalld: allow nginx on the non-standard HTTP_PORT + proxy to backend.
+if command -v setsebool >/dev/null 2>&1; then sudo setsebool -P httpd_can_network_connect 1 2>/dev/null || true; fi
+if command -v semanage >/dev/null 2>&1; then
+  sudo semanage port -a -t http_port_t -p tcp "$HTTP_PORT" 2>/dev/null || \
+  sudo semanage port -m -t http_port_t -p tcp "$HTTP_PORT" 2>/dev/null || true
+fi
+if command -v firewall-cmd >/dev/null 2>&1 && sudo firewall-cmd --state >/dev/null 2>&1; then
+  sudo firewall-cmd --permanent --add-port="${HTTP_PORT}/tcp" 2>/dev/null || true
+  sudo firewall-cmd --reload 2>/dev/null || true
+fi
+
 say "Testing nginx config…"; sudo nginx -t
 sudo systemctl enable nginx 2>/dev/null || true
 sudo systemctl reload nginx || sudo systemctl restart nginx
 
 # -------- 9) systemd backend --------
 say "Installing systemd unit…"
-sed -e "s|{{BACKEND_DIR}}|$BACKEND_DIR|g" -e "s|{{SERVICE_USER}}|$SERVICE_USER|g" \
+sed -e "s|{{BACKEND_DIR}}|$BACKEND_DIR|g" -e "s|{{SERVICE_USER}}|$SERVICE_USER|g" -e "s|{{BACKEND_PORT}}|$BACKEND_PORT|g" \
     "$SCRIPT_DIR/storagehub-backend.service" \
   | sudo tee /etc/systemd/system/storagehub-backend.service >/dev/null
 sudo systemctl daemon-reload
@@ -236,10 +269,10 @@ echo -e "${GREEN}=====================================================${NC}"
 echo -e "${GREEN}  ✅ StorageHub production deploy complete${NC}"
 echo
 echo "  Distro:    $PRETTY"
-echo "  Web:       http://$SERVER_IP/"
-[[ "$SERVER_NAME" != "_" ]] && echo "  Domain:    http://$SERVER_NAME/"
-echo "  API docs:  http://$SERVER_IP/docs"
-echo "  Health:    http://$SERVER_IP/api/v1/health"
+echo "  Web:       http://$SERVER_IP${PORTSFX}/"
+[[ "$SERVER_NAME" != "_" ]] && echo "  Domain:    http://$SERVER_NAME${PORTSFX}/"
+echo "  API docs:  http://$SERVER_IP${PORTSFX}/docs"
+echo "  Health:    http://$SERVER_IP${PORTSFX}/api/v1/health"
 echo
 echo "  First login: open the site and click 'Continue (Local Dev)'."
 echo "  The first account becomes admin. For real prod, configure OAuth"
