@@ -3,6 +3,12 @@
 Three ways to run StorageHub: **one-shot installer (easiest)**, **Docker Compose (manual)**,
 or **local development**.
 
+> StorageHub publishes the web UI on port **8080** and the backend on **8010** by
+> default, so it coexists with [SecureOps](https://github.com/suryaex/secureops)
+> (`:80` / `:8000`) on the same host — see [`../INTEROP.md`](../INTEROP.md).
+> Override with `HTTP_PORT` / `BACKEND_PORT`. Runs on x86-64 **and** ARM
+> (arm64 / armv7 — Raspberry Pi, Orange Pi).
+
 ---
 
 ## 0. One-shot installer (easiest)
@@ -21,7 +27,7 @@ chmod +x install.sh && ./install.sh
 make install
 ```
 
-Then open **http://localhost** and click **“Continue (Local Dev)”** (first account = admin).
+Then open **http://localhost:8080** and click **“Continue (Local Dev)”** (first account = admin).
 
 Manage it:
 ```bash
@@ -34,7 +40,7 @@ Manage it:
 
 ## 0b. Bare-metal production (Linux, no Docker)
 
-Installs system packages, MySQL/MariaDB (DB + user), Node, backend venv, frontend
+Installs system packages, MariaDB/MySQL (DB + user), Node, backend venv, frontend
 build, Nginx reverse proxy, and a systemd service — all in one command:
 
 ```bash
@@ -45,7 +51,9 @@ SERVER_NAME=storage.example.com sudo bash deployment/deploy-prod.sh
 ./deployment/deploy-prod.sh --update
 ```
 
-Supports Ubuntu/Debian/Mint/Pop!_OS, Fedora/RHEL/Rocky/Alma, openSUSE, and Arch.
+Supports Ubuntu/Debian/Mint/Pop!_OS, Fedora/RHEL/Rocky/Alma, openSUSE, and Arch —
+on **x86-64 and ARM** (arm64 / armv7). Defaults: web `:8080`, backend `:8010`
+(override with `HTTP_PORT` / `BACKEND_PORT`).
 
 ---
 
@@ -72,15 +80,15 @@ docker compose up -d --build
 
 # 4. Verify
 docker compose ps
-curl http://localhost/api/v1/health
+curl http://localhost:8080/api/v1/health
 ```
 
 ### Access
 | What            | URL                              |
 |-----------------|----------------------------------|
-| App             | http://localhost                 |
-| API docs        | http://localhost/docs            |
-| Backend direct  | http://localhost:8000/docs       |
+| App             | http://localhost:8080            |
+| API docs        | http://localhost:8080/docs       |
+| Backend (via Nginx) | http://localhost:8080/docs   |
 
 The first user to log in becomes **admin** automatically.
 With no OAuth configured, use the **local dev login** on the sign-in screen.
@@ -97,7 +105,7 @@ docker compose down -v             # stop and wipe data (DESTRUCTIVE)
 
 ## B. Manual local development
 
-### 1. MySQL 8
+### 1. MariaDB / MySQL
 Create the database and user, then import the schema:
 ```bash
 mysql -u root -p < database/schema.sql
@@ -134,10 +142,10 @@ npm run dev          # http://localhost:5173 (proxies /api → :8000)
 Register an OAuth app with each provider and set the callback URL:
 
 ```
-http://localhost:8000/api/v1/auth/callback/google
-http://localhost:8000/api/v1/auth/callback/github
-http://localhost:8000/api/v1/auth/callback/microsoft
-http://localhost:8000/api/v1/auth/callback/oidc
+http://localhost:8080/api/v1/auth/callback/google
+http://localhost:8080/api/v1/auth/callback/github
+http://localhost:8080/api/v1/auth/callback/microsoft
+http://localhost:8080/api/v1/auth/callback/oidc
 ```
 
 Then put the credentials in `.env`:
