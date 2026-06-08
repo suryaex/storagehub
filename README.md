@@ -4,7 +4,7 @@
 
 **Lightweight, self-hosted cloud storage with a macOS Tahoe / Finder–inspired UI.**
 
-FastAPI · MySQL 8 · React + Vite + TailwindCSS · OAuth2/OIDC · Docker Compose
+FastAPI · MariaDB/MySQL · React + Vite + TailwindCSS · OAuth2/OIDC · Docker Compose
 
 ![status](https://img.shields.io/badge/status-v1-blue) ![license](https://img.shields.io/badge/license-MIT-green) ![stack](https://img.shields.io/badge/stack-FastAPI%20%2B%20React-0A7AFF)
 
@@ -19,6 +19,11 @@ mobile, tablet, and desktop.
 
 > A lightweight alternative to Google Drive / Dropbox / Nextcloud for homelabs,
 > network engineers, and small teams.
+>
+> **Runs alongside [SecureOps](https://github.com/suryaex/secureops) on the same host** —
+> StorageHub uses port **8080** (web) / **8010** (backend) so it never clashes with
+> SecureOps (`:80` / `:8000`). See [`INTEROP.md`](INTEROP.md). Builds on **x86-64 and
+> ARM** (arm64 / armv7 — Raspberry Pi, Orange Pi).
 
 ---
 
@@ -27,7 +32,7 @@ mobile, tablet, and desktop.
 > On Linux the installer **auto-installs Docker + Compose if they're missing**
 > (via get.docker.com). It then generates a `.env` with secure random secrets,
 > **auto-detects your LAN IP**, builds all images, starts the stack behind an
-> **Nginx reverse proxy** (port 80), and waits until the backend is healthy. All
+> **Nginx reverse proxy** (port **8080**), and waits until the backend is healthy. All
 > Python/Node libraries are installed automatically **inside the containers** —
 > nothing else to install on the host. (On Windows/macOS, Docker Desktop is required.)
 
@@ -55,9 +60,9 @@ When it finishes, the installer prints both URLs:
 
 | What                | URL                          |
 |---------------------|------------------------------|
-| 🖥️ This machine      | http://localhost             |
-| 🌐 On the network    | http://&lt;your-LAN-IP&gt;   (open from phones / other PCs) |
-| 📚 API docs          | http://localhost/docs        |
+| 🖥️ This machine      | http://localhost:8080        |
+| 🌐 On the network    | http://&lt;your-LAN-IP&gt;:8080   (open from phones / other PCs) |
+| 📚 API docs          | http://localhost:8080/docs   |
 
 **First login:** with no OAuth configured, click **“Continue (Local Dev)”** on the
 sign-in screen. The **first account created becomes an admin** automatically.
@@ -76,16 +81,17 @@ Windows equivalents: `.\install.ps1 -Prod | -Rebuild | -Down | -Reset`
 
 The stack already includes an **Nginx reverse proxy**, and the installer writes your
 detected LAN IP into `.env` (`FRONTEND_URL`, `BACKEND_URL`, `CORS_ORIGINS`). Other
-devices on the same network can reach it at `http://<your-LAN-IP>`.
+devices on the same network can reach it at `http://<your-LAN-IP>:8080`.
+Change the port with `HTTP_PORT=9090 ./install.sh`.
 
-If they can't connect, allow inbound **TCP port 80** in your firewall:
+If they can't connect, allow inbound **TCP port 8080** in your firewall:
 ```bash
 # Linux (ufw)
-sudo ufw allow 80/tcp
+sudo ufw allow 8080/tcp
 ```
 ```powershell
 # Windows
-New-NetFirewallRule -DisplayName "StorageHub" -Direction Inbound -LocalPort 80 -Protocol TCP -Action Allow
+New-NetFirewallRule -DisplayName "StorageHub" -Direction Inbound -LocalPort 8080 -Protocol TCP -Action Allow
 ```
 
 ---
@@ -105,7 +111,9 @@ SERVER_NAME=storage.example.com sudo bash deployment/deploy-prod.sh
 ```
 
 Supports Ubuntu 20.04–25.04 · Debian 11–13 · Mint / Pop!_OS / elementary ·
-Fedora / RHEL / Rocky / Alma · openSUSE · Arch.
+Fedora / RHEL / Rocky / Alma · openSUSE · Arch — on **x86-64 and ARM**
+(arm64 / armv7: Raspberry Pi, Orange Pi). Defaults to web **:8080** + backend
+**:8010**; override with `HTTP_PORT` / `BACKEND_PORT`.
 
 Re-deploy after pulling changes, and add HTTPS:
 ```bash
@@ -119,7 +127,7 @@ sudo certbot --nginx -d storage.example.com               # Let's Encrypt TLS
 | `deployment/nginx-site.conf` | Nginx site template (SPA + `/api` + `/docs`) |
 | `deployment/storagehub-backend.service` | systemd unit (uvicorn) |
 
-The backend runs on `127.0.0.1:8000` behind Nginx; logs via
+The backend runs on `127.0.0.1:8010` behind Nginx; logs via
 `sudo journalctl -u storagehub-backend -f`.
 
 ---
@@ -183,11 +191,11 @@ It creates the array with `mdadm`, formats ext4, mounts it, and persists it to
 
 | Layer    | Technology |
 |----------|-----------|
-| Backend  | Python 3.11, FastAPI, SQLAlchemy 2.x, Alembic, PyJWT, httpx, passlib |
-| Database | MySQL 8 |
+| Backend  | Python 3.10–3.13, FastAPI, SQLAlchemy 2.x, Alembic, PyJWT, httpx, passlib |
+| Database | MariaDB 11 / MySQL 8 (PyMySQL) |
 | Frontend | React 18, Vite, TypeScript, TailwindCSS, Zustand, TanStack Query, React Router |
 | Auth     | OAuth2 Authorization-Code / OIDC, JWT access + rotating refresh |
-| Deploy   | Docker Compose, Nginx reverse proxy |
+| Deploy   | Docker Compose, Nginx reverse proxy — x86-64 + ARM (arm64/armv7) |
 
 ---
 
@@ -242,10 +250,10 @@ Key variables:
 Register an OAuth app per provider and set its callback URL to:
 
 ```text
-http://localhost:8000/api/v1/auth/callback/google
-http://localhost:8000/api/v1/auth/callback/github
-http://localhost:8000/api/v1/auth/callback/microsoft
-http://localhost:8000/api/v1/auth/callback/oidc
+http://localhost:8080/api/v1/auth/callback/google
+http://localhost:8080/api/v1/auth/callback/github
+http://localhost:8080/api/v1/auth/callback/microsoft
+http://localhost:8080/api/v1/auth/callback/oidc
 ```
 
 Fill the matching `*_CLIENT_ID` / `*_CLIENT_SECRET` in `.env`, then restart:
