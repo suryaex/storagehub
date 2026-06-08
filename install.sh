@@ -25,6 +25,8 @@ for a in "$@"; do case "$a" in
   --prod) PROD=1 ;;
 esac; done
 
+# Host HTTP port — 8080 so StorageHub does NOT collide with SecureOps (:80).
+HTTP_PORT="${HTTP_PORT:-8080}"
 DOCKER_SUDO=""
 COMPOSE=""
 
@@ -107,9 +109,11 @@ else
   sed_i "s|^MYSQL_ROOT_PASSWORD=.*|MYSQL_ROOT_PASSWORD=$(rand 16)|"
   ok ".env created (secrets generated)"
 fi
-sed_i "s|^FRONTEND_URL=.*|FRONTEND_URL=http://${IP}|"
-sed_i "s|^BACKEND_URL=.*|BACKEND_URL=http://${IP}|"
-sed_i "s|^CORS_ORIGINS=.*|CORS_ORIGINS=http://localhost,http://${IP}|"
+grep -q "^HTTP_PORT=" .env || echo "HTTP_PORT=${HTTP_PORT}" >> .env
+sed_i "s|^HTTP_PORT=.*|HTTP_PORT=${HTTP_PORT}|"
+sed_i "s|^FRONTEND_URL=.*|FRONTEND_URL=http://${IP}:${HTTP_PORT}|"
+sed_i "s|^BACKEND_URL=.*|BACKEND_URL=http://${IP}:${HTTP_PORT}|"
+sed_i "s|^CORS_ORIGINS=.*|CORS_ORIGINS=http://localhost:${HTTP_PORT},http://${IP}:${HTTP_PORT}|"
 ok "Bound to network address ${IP}"
 
 # ── 2. Build & start (frontend, backend, mysql, nginx reverse proxy) ─────────
@@ -118,14 +122,14 @@ case "$ACTION" in
   nobuild) BUILD="" ;;
   *)       BUILD="--build" ;;
 esac
-info "Building & starting containers (nginx reverse proxy on port 80)…"
+info "Building & starting containers (nginx reverse proxy on port ${HTTP_PORT})…"
 $COMPOSE $CF up -d $BUILD
 
 # ── 3. Wait for backend health ───────────────────────────────────────────────
 info "Waiting for backend to become healthy…"
 HEALTHY=0
 for _ in $(seq 1 60); do
-  if curl -fsS "http://localhost/api/v1/health" >/dev/null 2>&1; then ok "Backend is healthy"; HEALTHY=1; break; fi
+  if curl -fsS "http://localhost:${HTTP_PORT}/api/v1/health" >/dev/null 2>&1; then ok "Backend is healthy"; HEALTHY=1; break; fi
   sleep 3; printf "."
 done
 echo ""
@@ -135,11 +139,11 @@ echo ""
 echo ""
 ok "StorageHub is up (Nginx reverse proxy active)!"
 echo ""
-echo -e "  ${GREEN}On this machine${NC}     →  http://localhost"
-echo -e "  ${GREEN}On the network${NC}      →  http://${IP}        (open from phone/other PCs)"
-echo -e "  ${GREEN}API docs${NC}            →  http://${IP}/docs"
+echo -e "  ${GREEN}On this machine${NC}     →  http://localhost:${HTTP_PORT}"
+echo -e "  ${GREEN}On the network${NC}      →  http://${IP}:${HTTP_PORT}   (open from phone/other PCs)"
+echo -e "  ${GREEN}API docs${NC}            →  http://${IP}:${HTTP_PORT}/docs"
 echo ""
 echo "  First login: \"Continue (Local Dev)\" — the first account becomes admin."
-echo "  If other devices can't reach it, allow TCP port 80 in your firewall."
+echo "  If other devices can't reach it, allow TCP port ${HTTP_PORT} in your firewall."
 echo "  Logs: $COMPOSE logs -f   |   Stop: ./install.sh --down"
 echo ""

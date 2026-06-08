@@ -1,6 +1,9 @@
 services:
   mysql:
-    image: mysql:8.0
+    # MariaDB (not MySQL) so the image also runs on ARM — arm64 AND armv7
+    # (Raspberry Pi / Orange Pi). The mariadb image accepts the MYSQL_* env
+    # vars for drop-in compatibility, and PyMySQL talks to it unchanged.
+    image: mariadb:11
     container_name: storagehub-mysql
     restart: unless-stopped
     environment:
@@ -8,7 +11,7 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE:-storagehub}
       MYSQL_USER: ${MYSQL_USER:-storagehub}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-storagehub}
-    command: --default-authentication-plugin=caching_sha2_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     volumes:
       - mysql_data:/var/lib/mysql
       - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
@@ -89,7 +92,9 @@ services:
       frontend:
         condition: service_started
     ports:
-      - "80:80"
+      # Host port 8080 by default so StorageHub does NOT collide with SecureOps
+      # (which owns host :80/:443). Override with HTTP_PORT in .env if needed.
+      - "${HTTP_PORT:-8080}:80"
     volumes:
       - ./deployment/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     networks:
