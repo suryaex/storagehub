@@ -172,7 +172,29 @@ info "Database '${DB_NAME}' and user '${DB_USER}' ready."
 # -------- 4) Backend .env (production) --------
 say "Writing backend .env…"
 SERVER_IP="$(hostname -I 2>/dev/null | awk '{print $1}')"; SERVER_IP="${SERVER_IP:-127.0.0.1}"
-PUBLIC_HOST="$SERVER_IP"; [[ "$SERVER_NAME" != "_" ]] && PUBLIC_HOST="$SERVER_NAME"
+
+# VPN (Tailscale) + optional public IP/domain — so StorageHub is reachable over
+# a public address or a VPN, just like SecureOps.
+TS_IP="$(command -v tailscale >/dev/null 2>&1 && tailscale ip -4 2>/dev/null | head -n1 || true)"
+[[ -n "$TS_IP" ]] && info "Tailscale IP: $TS_IP"
+PUBLIC_IP="${PUBLIC_IP:-}"   # export PUBLIC_IP=1.2.3.4 to advertise a public address
+
+# Primary host used for OAuth redirect URLs: domain > Tailscale > LAN.
+PUBLIC_HOST="$SERVER_IP"
+[[ -n "$TS_IP" ]] && PUBLIC_HOST="$TS_IP"
+[[ "$SERVER_NAME" != "_" ]] && PUBLIC_HOST="$SERVER_NAME"
+
+# Build a CORS list covering every way the box can be reached.
+build_cors() {
+  local out="http://localhost${PORTSFX},http://${SERVER_IP}${PORTSFX}" h
+  for h in "$TS_IP" "$PUBLIC_IP"; do
+    [[ -n "$h" ]] && out="${out},http://${h}${PORTSFX}"
+  done
+  if [[ "$SERVER_NAME" != "_" ]]; then
+    out="${out},http://${SERVER_NAME}${PORTSFX},http://${SERVER_NAME},https://${SERVER_NAME}"
+  fi
+  echo "$out"
+}
 
 if [[ -f "$ENV_FILE" ]]; then
   info ".env exists — refreshing URLs/DB only, keeping SECRET_KEY"
@@ -187,7 +209,7 @@ set_env DATABASE_URL      "mysql+pymysql://${DB_USER}:${DB_PASS}@127.0.0.1:3306/
 set_env STORAGE_ROOT      "$STORAGE_ROOT"
 set_env FRONTEND_URL      "http://${PUBLIC_HOST}${PORTSFX}"
 set_env BACKEND_URL       "http://${PUBLIC_HOST}${PORTSFX}"
-set_env CORS_ORIGINS      "http://localhost${PORTSFX},http://${SERVER_IP}${PORTSFX}$([[ "$SERVER_NAME" != "_" ]] && echo ",http://${SERVER_NAME}${PORTSFX}")"
+set_env CORS_ORIGINS      "$(build_cors)"
 chmod 600 "$ENV_FILE"; chown "$SERVICE_USER":"$SERVICE_USER" "$ENV_FILE" 2>/dev/null || true
 
 # -------- 5) Backend venv + deps --------
@@ -270,6 +292,8 @@ echo -e "${GREEN}  ✅ StorageHub production deploy complete${NC}"
 echo
 echo "  Distro:    $PRETTY"
 echo "  Web:       http://$SERVER_IP${PORTSFX}/"
+[[ -n "$TS_IP" ]] && echo "  Tailscale: http://$TS_IP${PORTSFX}/"
+[[ -n "$PUBLIC_IP" ]] && echo "  Public:    http://$PUBLIC_IP${PORTSFX}/   (open the port in your firewall)"
 [[ "$SERVER_NAME" != "_" ]] && echo "  Domain:    http://$SERVER_NAME${PORTSFX}/"
 echo "  API docs:  http://$SERVER_IP${PORTSFX}/docs"
 echo "  Health:    http://$SERVER_IP${PORTSFX}/api/v1/health"

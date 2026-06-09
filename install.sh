@@ -7,6 +7,11 @@
 #   ./install.sh --rebuild    # force rebuild images
 #   ./install.sh --down       # stop the stack
 #   ./install.sh --reset      # stop and DELETE all data (volumes)
+#   ./install.sh --tailscale  # install + join Tailscale, use its VPN IP
+#   ./install.sh --public     # auto-detect public IP and add it to CORS
+# Env: PUBLIC_HOST=storage.example.com   (public domain for OAuth + CORS)
+#      PUBLIC_IP=1.2.3.4                  (advertise a fixed public IP)
+# Reachable over LAN, public IP, or a VPN (Tailscale) — like SecureOps.
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -18,11 +23,13 @@ warn()  { echo -e "${YELLOW}!${NC} $*"; }
 err()   { echo -e "${RED}✗${NC} $*" >&2; }
 
 # ── Args ─────────────────────────────────────────────────────────────────────
-ACTION="up"; PROD=0
+ACTION="up"; PROD=0; TAILSCALE=0; PUBLIC_DETECT=0
 for a in "$@"; do case "$a" in
   --down) ACTION="down" ;; --reset) ACTION="reset" ;;
   --rebuild) ACTION="rebuild" ;; --no-build) ACTION="nobuild" ;;
   --prod) PROD=1 ;;
+  --tailscale) TAILSCALE=1 ;;
+  --public) PUBLIC_DETECT=1 ;;
 esac; done
 
 # Host HTTP port — 8080 so StorageHub does NOT collide with SecureOps (:80).
@@ -73,6 +80,23 @@ lan_ip() {
   [ -z "$ip" ] && command -v ipconfig >/dev/null 2>&1 && ip="$(ipconfig getifaddr en0 2>/dev/null || true)"
   echo "${ip:-127.0.0.1}"
 }
+ts_ip() {  # Tailscale (VPN) IPv4, if joined
+  command -v tailscale >/dev/null 2>&1 && tailscale ip -4 2>/dev/null | head -n1 || true
+}
+pub_ip() {  # public IP (only when --public; best-effort, short timeout)
+  curl -fsS --max-time 5 https://api.ipify.org 2>/dev/null ||   curl -fsS --max-time 5 https://ifconfig.me 2>/dev/null || true
+}
+# Comma-join http(s) origins for every non-empty host on :HTTP_PORT
+build_origins() {
+  local p=":${HTTP_PORT}" out="http://localhost${p}" h
+  for h in "$IP" "$TSIP" "$PUBIP"; do
+    [ -n "$h" ] && out="${out},http://${h}${p}"
+  done
+  if [ -n "$PUBLIC_HOST" ]; then
+    out="${out},http://${PUBLIC_HOST}${p},http://${PUBLIC_HOST},https://${PUBLIC_HOST}"
+  fi
+  echo "$out"
+}
 sed_i() { if sed --version >/dev/null 2>&1; then sed -i "$1" .env; else sed -i '' "$1" .env; fi; }
 
 # compose file selection
@@ -98,6 +122,18 @@ ok "Docker ready  ($COMPOSE)"
 IP="$(lan_ip)"
 ok "Detected LAN address: ${IP}"
 
+# VPN (Tailscale) — install on --tailscale, then use its IP (like SecureOps)
+if [ "$TAILSCALE" = "1" ] && ! command -v tailscale >/dev/null 2>&1; then
+  info "Installing Tailscale…"; curl -fsSL https://tailscale.com/install.sh | sh || warn "Tailscale install failed (continuing)"
+  command -v tailscale >/dev/null 2>&1 && { sudo tailscale up 2>/dev/null || warn "Run 'sudo tailscale up' then re-run with --tailscale"; }
+fi
+TSIP="$(ts_ip)";   [ -n "$TSIP" ] && ok "Tailscale IP: ${TSIP}"
+PUBIP=""; [ "$PUBLIC_DETECT" = "1" ] && { PUBIP="$(pub_ip)"; [ -n "$PUBIP" ] && ok "Public IP: ${PUBIP}"; }
+[ -n "${PUBLIC_IP:-}" ] && PUBIP="$PUBLIC_IP"     # explicit override
+PUBLIC_HOST="${PUBLIC_HOST:-}"                    # optional public domain
+# Primary URL for OAuth redirects: domain > Tailscale > public > LAN
+PRIMARY="$IP"; [ -n "$PUBIP" ] && PRIMARY="$PUBIP"; [ -n "$TSIP" ] && PRIMARY="$TSIP"; [ -n "$PUBLIC_HOST" ] && PRIMARY="$PUBLIC_HOST"
+
 # ── 1. Environment file (LAN-aware) ──────────────────────────────────────────
 if [ -f .env ]; then
   ok ".env already exists — keeping secrets, aligning URLs to LAN"
@@ -111,10 +147,11 @@ else
 fi
 grep -q "^HTTP_PORT=" .env || echo "HTTP_PORT=${HTTP_PORT}" >> .env
 sed_i "s|^HTTP_PORT=.*|HTTP_PORT=${HTTP_PORT}|"
-sed_i "s|^FRONTEND_URL=.*|FRONTEND_URL=http://${IP}:${HTTP_PORT}|"
-sed_i "s|^BACKEND_URL=.*|BACKEND_URL=http://${IP}:${HTTP_PORT}|"
-sed_i "s|^CORS_ORIGINS=.*|CORS_ORIGINS=http://localhost:${HTTP_PORT},http://${IP}:${HTTP_PORT}|"
-ok "Bound to network address ${IP}"
+PRIMURL="http://${PRIMARY}:${HTTP_PORT}"; [ -n "$PUBLIC_HOST" ] && PRIMURL="http://${PUBLIC_HOST}"
+sed_i "s|^FRONTEND_URL=.*|FRONTEND_URL=${PRIMURL}|"
+sed_i "s|^BACKEND_URL=.*|BACKEND_URL=${PRIMURL}|"
+sed_i "s|^CORS_ORIGINS=.*|CORS_ORIGINS=$(build_origins)|"
+ok "Reachable via: localhost / LAN ${IP}${TSIP:+ / Tailscale ${TSIP}}${PUBIP:+ / public ${PUBIP}}"
 
 # ── 2. Build & start (frontend, backend, mysql, nginx reverse proxy) ─────────
 case "$ACTION" in
@@ -141,6 +178,8 @@ ok "StorageHub is up (Nginx reverse proxy active)!"
 echo ""
 echo -e "  ${GREEN}On this machine${NC}     →  http://localhost:${HTTP_PORT}"
 echo -e "  ${GREEN}On the network${NC}      →  http://${IP}:${HTTP_PORT}   (open from phone/other PCs)"
+[ -n "$TSIP" ] && echo -e "  ${GREEN}Over Tailscale VPN${NC}  →  http://${TSIP}:${HTTP_PORT}"
+[ -n "$PUBIP" ] && echo -e "  ${GREEN}Public IP${NC}           →  http://${PUBIP}:${HTTP_PORT}   (open the port in your firewall/router)"
 echo -e "  ${GREEN}API docs${NC}            →  http://${IP}:${HTTP_PORT}/docs"
 echo ""
 echo "  First login: \"Continue (Local Dev)\" — the first account becomes admin."
