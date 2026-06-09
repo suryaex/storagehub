@@ -31,6 +31,13 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str = "mysql+pymysql://storagehub:storagehub@localhost:3306/storagehub"
 
+    # Service-to-service ingest (e.g. SecureOps log backup). Comma-separated
+    # secret keys accepted in the X-API-Key header on /ingest endpoints.
+    SERVICE_API_KEYS: str = ""
+
+    # Security headers
+    ENABLE_HSTS: bool = False
+
     # Storage
     STORAGE_ROOT: str = "./storage"
     DEFAULT_USER_QUOTA: int = 10_737_418_240  # 10 GiB
@@ -54,7 +61,11 @@ class Settings(BaseSettings):
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
 
-    @field_validator("ALLOW_LOCAL_LOGIN", mode="before")
+    @property
+    def service_api_keys_list(self) -> list[str]:
+        return [k.strip() for k in self.SERVICE_API_KEYS.split(",") if k.strip()]
+
+    @field_validator("ALLOW_LOCAL_LOGIN", "ENABLE_HSTS", mode="before")
     @classmethod
     def _parse_bool(cls, v):  # noqa: ANN001
         if isinstance(v, str):

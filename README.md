@@ -347,6 +347,17 @@ CI builds the backend and frontend on every push — see [`.github/workflows/ci.
 
 ---
 
+## 🔒 Security & service ingest
+
+StorageHub refuses to boot in production with a default `SECRET_KEY`, sends
+security headers, and exposes a **service ingest** endpoint
+(`POST /api/v1/ingest/logs`, `X-API-Key`) used by **SecureOps LogSync** to back
+up logs from ARM boards, microcontrollers, and network appliances. Set
+`SERVICE_API_KEYS` to enable it. See [`SECURITY.md`](SECURITY.md).
+
+Uninstall before a major update: `sudo bash uninstall.sh` (add `--purge` to
+delete data + volumes).
+
 ## 📄 License
 
 [MIT](LICENSE)

@@ -47,6 +47,32 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+# SECURITY: refuse to boot in production with the default signing key.
+if settings.ENVIRONMENT.lower() in ("production", "prod") and \
+        settings.SECRET_KEY in ("", "change-me", "change-me-to-a-long-random-string"):
+    raise RuntimeError(
+        "SECRET_KEY is unset/default in production — set a strong SECRET_KEY in .env"
+    )
+
+
+@app.middleware("http")
+async def _security_headers(request, call_next):
+    resp = await call_next(request)
+    resp.headers.setdefault("X-Content-Type-Options", "nosniff")
+    resp.headers.setdefault("X-Frame-Options", "DENY")
+    resp.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    resp.headers.setdefault("X-XSS-Protection", "0")
+    resp.headers.setdefault(
+        "Permissions-Policy", "geolocation=(), microphone=(), camera=()"
+    )
+    if settings.ENABLE_HSTS:
+        resp.headers.setdefault(
+            "Strict-Transport-Security", "max-age=31536000; includeSubDomains"
+        )
+    return resp
+
+
 register_exception_handlers(app)
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)
 
