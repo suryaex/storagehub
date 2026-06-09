@@ -84,6 +84,30 @@ detected LAN IP into `.env` (`FRONTEND_URL`, `BACKEND_URL`, `CORS_ORIGINS`). Oth
 devices on the same network can reach it at `http://<your-LAN-IP>:8080`.
 Change the port with `HTTP_PORT=9090 ./install.sh`.
 
+### 🌍 Public IP or VPN (Tailscale)
+
+Because the SPA talks to the API through the **same Nginx** on a relative path,
+StorageHub is reachable on *any* address the box has — LAN, a public IP, or a
+Tailscale/WireGuard VPN — exactly like SecureOps.
+
+```bash
+# Join a Tailscale VPN and bind to its 100.x address automatically
+./install.sh --tailscale
+
+# Advertise a public domain (used for OAuth redirects + CORS)
+PUBLIC_HOST=storage.example.com ./install.sh
+
+# Auto-detect the public IP, or set it explicitly
+./install.sh --public
+PUBLIC_IP=203.0.113.10 ./install.sh
+```
+
+The installer adds every detected address (localhost, LAN, Tailscale, public,
+domain) to `CORS_ORIGINS` and prints each reachable URL. For public IP, open the
+chosen port on your firewall/router; for OAuth set the callback to your
+`PUBLIC_HOST`. Bare-metal `deploy-prod.sh` does the same and honours `SERVER_NAME`
+(domain), an auto-detected Tailscale IP, and `PUBLIC_IP`.
+
 If they can't connect, allow inbound **TCP port 8080** in your firewall:
 ```bash
 # Linux (ufw)

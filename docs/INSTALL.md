@@ -51,6 +51,11 @@ SERVER_NAME=storage.example.com sudo bash deployment/deploy-prod.sh
 ./deployment/deploy-prod.sh --update
 ```
 
+> **Public IP / VPN:** reachable over LAN, a public IP, or Tailscale — like
+> SecureOps. Bare-metal honours `SERVER_NAME=<domain>`, an auto-detected
+> Tailscale IP, and `PUBLIC_IP=<ip>` (all added to CORS). Docker: `./install.sh
+> --tailscale`, `--public`, or `PUBLIC_HOST=<domain> ./install.sh`.
+
 Supports Ubuntu/Debian/Mint/Pop!_OS, Fedora/RHEL/Rocky/Alma, openSUSE, and Arch —
 on **x86-64 and ARM** (arm64 / armv7). Defaults: web `:8080`, backend `:8010`
 (override with `HTTP_PORT` / `BACKEND_PORT`).
