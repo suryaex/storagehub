@@ -74,6 +74,8 @@ cd storagehub
 cp .env.example .env
 #   Required: set a strong SECRET_KEY and MySQL passwords.
 #   Optional: add OAuth client IDs/secrets to enable Google/GitHub/Microsoft/OIDC.
+#   Optional: SERVICE_API_KEYS=$(openssl rand -hex 32) to allow SecureOps log backups
+#            (X-API-Key on /api/v1/ingest/logs); ENABLE_HSTS=true when HTTPS-only.
 
 # 3. Start
 docker compose up -d --build
@@ -156,6 +158,44 @@ GOOGLE_CLIENT_SECRET=...
 Restart the backend. Enabled providers appear automatically on the login screen.
 
 > In production set `ALLOW_LOCAL_LOGIN=false`, serve over HTTPS, and use real OAuth.
+
+---
+
+## E. Security (production)
+
+```bash
+ENVIRONMENT=production                 # backend refuses to boot with a default SECRET_KEY
+SECRET_KEY=$(openssl rand -base64 48)
+ALLOW_LOCAL_LOGIN=false                # require real OAuth in production
+SERVICE_API_KEYS=$(openssl rand -hex 32)   # service ingest (SecureOps backups)
+ENABLE_HSTS=true                       # only when served strictly over HTTPS
+CORS_ORIGINS=https://storage.example.com
+```
+
+- Security headers (`nosniff`, `X-Frame-Options: DENY`, Referrer/Permissions-Policy)
+  are sent on every response.
+- Keep MariaDB/MySQL bound to localhost / the Docker network — never expose 3306.
+- Full details: [`../SECURITY.md`](../SECURITY.md).
+
+### Service log ingest (used by SecureOps LogSync)
+
+With `SERVICE_API_KEYS` set, SecureOps can back up logs from ARM boards,
+microcontrollers, and network appliances here:
+
+```bash
+curl -X POST http://<host>:8080/api/v1/ingest/logs \
+  -H "X-API-Key: <one of SERVICE_API_KEYS>" \
+  -F "source=secureops" -F "file=@logs.jsonl.gz"
+# stored under STORAGE_ROOT/backups/<source>/<YYYYMMDD>/
+```
+
+## F. Uninstall (before a major update / version switch)
+
+```bash
+sudo bash uninstall.sh            # stop + remove, KEEP data (DB + files + volumes)
+sudo bash uninstall.sh --purge    # ALSO delete DB, uploaded files, Docker volumes
+```
+Handles both the Docker stack and a bare-metal install automatically.
 
 ---
 
