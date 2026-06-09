@@ -2,7 +2,7 @@
 
 # 📦 StorageHub
 
-**Lightweight, self-hosted cloud storage with a macOS Tahoe / Finder–inspired UI.**
+**Lightweight, self-hosted cloud storage**
 
 FastAPI · MariaDB/MySQL · React + Vite + TailwindCSS · OAuth2/OIDC · Docker Compose
 
