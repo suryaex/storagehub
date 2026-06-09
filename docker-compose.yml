@@ -17,10 +17,14 @@ services:
       - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
       - ./database/seeds/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${MYSQL_ROOT_PASSWORD:-rootpassword}"]
+      # Use MariaDB's bundled healthcheck.sh — the mysqladmin binary was removed in
+      # mariadb:11, so the old "mysqladmin ping" check always failed and left the
+      # container permanently "unhealthy", which blocked backend + nginx from starting.
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 10s
       timeout: 5s
-      retries: 10
+      retries: 12
+      start_period: 45s
     networks:
       - storagehub
 
