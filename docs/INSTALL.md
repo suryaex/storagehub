@@ -62,6 +62,13 @@ on **x86-64 and ARM** (arm64 / armv7). Defaults: web `:8080`, backend `:8010`
 
 ---
 
+> **Fedora / WSL Docker install fails?** If `get.docker.com` reports *“Cannot
+> download docker-ce … All mirrors were tried”*, just re-run `./install.sh` — it
+> now falls back to the distro engine (`moby-engine` on Fedora, `docker.io` on
+> Debian/Ubuntu) and handles WSL without systemd. On WSL the smoothest path is
+> **Docker Desktop → Settings → Resources → WSL integration**. No Docker at all?
+> Use the bare-metal path: `sudo bash deployment/deploy-prod.sh`.
+
 ## A. Docker Compose (manual)
 
 ### Prerequisites

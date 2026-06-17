@@ -12,6 +12,11 @@
 # Env: PUBLIC_HOST=storage.example.com   (public domain for OAuth + CORS)
 #      PUBLIC_IP=1.2.3.4                  (advertise a fixed public IP)
 # Reachable over LAN, public IP, or a VPN (Tailscale) — like SecureOps.
+#
+# Docker install is resilient: if get.docker.com mirrors fail (common on Fedora),
+# it falls back to the distro engine (Fedora 'moby-engine', Debian 'docker.io').
+# On WSL it prefers Docker Desktop integration and handles a missing systemd; if
+# Docker can't be installed it points you to the no-Docker path (deploy-prod.sh).
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -37,36 +42,115 @@ HTTP_PORT="${HTTP_PORT:-8080}"
 DOCKER_SUDO=""
 COMPOSE=""
 
+is_wsl() { grep -qiE 'microsoft|wsl' /proc/version 2>/dev/null; }
+
+pkgmgr() {
+  if   command -v dnf     >/dev/null 2>&1; then echo dnf
+  elif command -v apt-get >/dev/null 2>&1; then echo apt
+  elif command -v zypper  >/dev/null 2>&1; then echo zypper
+  elif command -v pacman  >/dev/null 2>&1; then echo pacman
+  elif command -v yum     >/dev/null 2>&1; then echo yum
+  else echo ""; fi
+}
+
+start_docker_daemon() {
+  # systemd → sysv service → background dockerd (WSL without systemd)
+  sudo systemctl enable --now docker >/dev/null 2>&1 && return 0
+  sudo service docker start >/dev/null 2>&1 && return 0
+  if command -v dockerd >/dev/null 2>&1 && ! pgrep -x dockerd >/dev/null 2>&1; then
+    info "Starting dockerd in background (no systemd)…"
+    sudo sh -c 'nohup dockerd >/tmp/dockerd.log 2>&1 &'
+    sleep 4
+  fi
+  return 0
+}
+
+install_docker() {
+  local pm; pm="$(pkgmgr)"
+  # 1) upstream convenience script — best when download.docker.com mirrors are healthy
+  info "Installing Docker via get.docker.com…"
+  if curl -fsSL https://get.docker.com | sudo sh >/dev/null 2>&1 && command -v docker >/dev/null 2>&1; then
+    return 0
+  fi
+  warn "get.docker.com failed (mirror/network) — falling back to distro packages…"
+  # 2) distro-native engine. On Fedora/RHEL 'moby-engine' lives in the main repos,
+  #    so it avoids the flaky download.docker.com docker-ce mirror entirely.
+  case "$pm" in
+    dnf|yum)
+      # engine and compose installed separately so a missing pkg doesn't fail the other
+      sudo "$pm" install -y --setopt=retries=10 --skip-broken moby-engine 2>/dev/null \
+        || sudo "$pm" install -y --setopt=retries=10 --skip-broken docker 2>/dev/null || true
+      sudo "$pm" install -y --skip-broken docker-compose 2>/dev/null \
+        || sudo "$pm" install -y --skip-broken moby-compose 2>/dev/null || true
+      ;;
+    apt)
+      sudo apt-get update -y || true
+      sudo apt-get install -y docker.io 2>/dev/null || true
+      sudo apt-get install -y docker-compose-v2 2>/dev/null \
+        || sudo apt-get install -y docker-compose 2>/dev/null || true
+      ;;
+    zypper)  sudo zypper --non-interactive install docker docker-compose 2>/dev/null || true ;;
+    pacman)  sudo pacman -Sy --noconfirm docker docker-compose 2>/dev/null || true ;;
+  esac
+  command -v docker >/dev/null 2>&1 && return 0
+  # 3) last resort: podman with the docker shim (Fedora ships these)
+  case "$pm" in
+    dnf|yum) sudo "$pm" install -y podman podman-docker 2>/dev/null || true ;;
+  esac
+  command -v docker >/dev/null 2>&1
+}
+
 ensure_docker() {
   if ! command -v docker >/dev/null 2>&1; then
-    if [ "$(uname -s)" = "Linux" ]; then
-      info "Docker not found — installing via get.docker.com…"
-      curl -fsSL https://get.docker.com | sudo sh
-      sudo systemctl enable --now docker 2>/dev/null || true
-      sudo usermod -aG docker "$(id -un)" 2>/dev/null || true
-    else
+    if [ "$(uname -s)" != "Linux" ]; then
       err "Docker is not installed. Install Docker Desktop: https://docs.docker.com/get-docker/"; exit 1
     fi
+    if is_wsl; then
+      warn "WSL detected — the smoothest path is Docker Desktop with WSL integration"
+      warn "  (Docker Desktop → Settings → Resources → WSL integration → enable this distro)."
+      warn "Trying to install a Docker engine inside WSL as a fallback…"
+    fi
+    if ! install_docker; then
+      err "Could not install Docker automatically (mirror/network issue). Choose one:"
+      err "  1) Install Docker Desktop + enable WSL integration, then re-run ./install.sh"
+      err "  2) Run WITHOUT Docker (bare-metal):  sudo bash deployment/deploy-prod.sh"
+      exit 1
+    fi
+    sudo usermod -aG docker "$(id -un)" 2>/dev/null || true
   fi
+
+  start_docker_daemon
   if docker info >/dev/null 2>&1; then DOCKER_SUDO="";
   elif sudo docker info >/dev/null 2>&1; then DOCKER_SUDO="sudo";
   else
-    sudo systemctl start docker 2>/dev/null || true
+    start_docker_daemon
     if docker info >/dev/null 2>&1; then DOCKER_SUDO="";
     elif sudo docker info >/dev/null 2>&1; then DOCKER_SUDO="sudo";
-    else err "Docker daemon not available. Start Docker and retry."; exit 1; fi
+    else
+      err "Docker daemon not available."
+      if is_wsl; then
+        err "WSL without systemd — enable it: add to /etc/wsl.conf →  [boot]\\n    systemd=true"
+        err "then run 'wsl --shutdown' in Windows and reopen. Or use Docker Desktop integration."
+      fi
+      err "Or run without Docker:  sudo bash deployment/deploy-prod.sh"
+      exit 1
+    fi
   fi
 }
 
 detect_compose() {
-  if $DOCKER_SUDO docker compose version >/dev/null 2>&1; then COMPOSE="$DOCKER_SUDO docker compose";
-  elif command -v docker-compose >/dev/null 2>&1; then COMPOSE="$DOCKER_SUDO docker-compose";
-  else
-    warn "Docker Compose v2 plugin missing — attempting install…"
-    command -v apt-get >/dev/null 2>&1 && { sudo apt-get update -y && sudo apt-get install -y docker-compose-plugin || true; }
-    if $DOCKER_SUDO docker compose version >/dev/null 2>&1; then COMPOSE="$DOCKER_SUDO docker compose"
-    else err "Could not get Docker Compose v2. Install it and retry."; exit 1; fi
-  fi
+  if $DOCKER_SUDO docker compose version >/dev/null 2>&1; then COMPOSE="$DOCKER_SUDO docker compose"; return 0; fi
+  if command -v docker-compose >/dev/null 2>&1; then COMPOSE="$DOCKER_SUDO docker-compose"; return 0; fi
+  warn "Docker Compose not found — attempting install…"
+  case "$(pkgmgr)" in
+    apt)     sudo apt-get update -y && sudo apt-get install -y docker-compose-plugin 2>/dev/null || sudo apt-get install -y docker-compose 2>/dev/null || true ;;
+    dnf|yum) sudo "$(pkgmgr)" install -y --skip-broken docker-compose moby-compose 2>/dev/null || true ;;
+    zypper)  sudo zypper --non-interactive install docker-compose 2>/dev/null || true ;;
+    pacman)  sudo pacman -Sy --noconfirm docker-compose 2>/dev/null || true ;;
+  esac
+  if $DOCKER_SUDO docker compose version >/dev/null 2>&1; then COMPOSE="$DOCKER_SUDO docker compose"
+  elif command -v docker-compose >/dev/null 2>&1; then COMPOSE="$DOCKER_SUDO docker-compose"
+  else err "Could not get Docker Compose. Install it (or use deployment/deploy-prod.sh) and retry."; exit 1; fi
 }
 
 rand() {
