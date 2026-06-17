@@ -6,7 +6,10 @@
 
 FastAPI · MariaDB/MySQL · React + Vite + TailwindCSS · OAuth2/OIDC · Docker Compose
 
-![status](https://img.shields.io/badge/status-v1.1-blue) ![license](https://img.shields.io/badge/license-MIT-green) ![stack](https://img.shields.io/badge/stack-FastAPI%20%2B%20React-0A7AFF)
+**Politeknik Negeri Sriwijaya · Jurusan Teknik Elektro · Prodi D4 Teknik Telekomunikasi**<br>
+Pengembang: **Muhammad Surya Ragasin** · Bagian dari sistem **SecureOps + StorageHub**
+
+![status](https://img.shields.io/badge/status-v1.1-blue) ![license](https://img.shields.io/badge/license-Polsri%20Internal-blue) ![stack](https://img.shields.io/badge/stack-FastAPI%20%2B%20React-0A7AFF)
 
 </div>
 
@@ -407,4 +410,6 @@ delete data + volumes).
 
 ## 📄 License
 
-[MIT](LICENSE)
+Penggunaan **khusus internal Politeknik Negeri Sriwijaya** — lihat [LICENSE](LICENSE).
+Untuk redistribusi atau penggunaan di luar Polsri, hubungi pengembang melalui
+Jurusan Teknik Elektro, Politeknik Negeri Sriwijaya.
