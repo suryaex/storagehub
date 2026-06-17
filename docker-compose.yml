@@ -29,6 +29,7 @@ services:
       - storagehub
 
   backend:
+    image: ghcr.io/suryaex/storagehub-backend:latest
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -66,6 +67,7 @@ services:
       - storagehub
 
   frontend:
+    image: ghcr.io/suryaex/storagehub-frontend:latest
     build:
       context: ./frontend
       dockerfile: Dockerfile

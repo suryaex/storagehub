@@ -120,6 +120,19 @@ New-NetFirewallRule -DisplayName "StorageHub" -Direction Inbound -LocalPort 8080
 
 ---
 
+## 🐳 Pre-built images (GHCR)
+
+Multi-arch images (amd64 + arm64) are published to the GitHub Container Registry
+by CI — run without building locally:
+
+```bash
+docker compose pull && docker compose up -d
+# ghcr.io/suryaex/storagehub-backend:latest · ghcr.io/suryaex/storagehub-frontend:latest
+```
+> First run: make the GHCR packages **public**, or `docker login ghcr.io` first.
+
+---
+
 ## 🖧 Production deploy (bare-metal Linux, no Docker)
 
 One script installs **everything** and wires up the full stack natively — system
