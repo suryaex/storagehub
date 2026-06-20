@@ -102,4 +102,6 @@ export interface SearchResults {
 
 export type ViewMode = "grid" | "list" | "column";
 export type Theme = "light" | "dark" | "system";
-export type Language = "en" | "id" | "ja" | "zh";
+// Kode bahasa BCP-47 ringkas (mis. "en", "id", "zh"). Daftar lengkap ada di
+// src/i18n/languages.ts; bahasa tanpa kamus jatuh ke Inggris.
+export type Language = string;

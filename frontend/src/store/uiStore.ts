@@ -1,6 +1,9 @@
 import { create } from "zustand";
 import type { Language, Theme, ViewMode } from "@/types";
-import { DEFAULT_LANG, translations } from "@/i18n/locales";
+import { DEFAULT_LANG } from "@/i18n/locales";
+import { LANGUAGES, RTL_LANGS } from "@/i18n/languages";
+
+const KNOWN_LANGS = new Set(LANGUAGES.map((l) => l.code));
 
 interface UIState {
   theme: Theme;
@@ -19,10 +22,10 @@ interface UIState {
 }
 
 function detectLang(): Language {
-  const saved = localStorage.getItem("sh_lang") as Language | null;
-  if (saved && translations[saved]) return saved;
-  const browser = (navigator.language || DEFAULT_LANG).slice(0, 2) as Language;
-  return translations[browser] ? browser : DEFAULT_LANG;
+  const saved = localStorage.getItem("sh_lang");
+  if (saved && KNOWN_LANGS.has(saved)) return saved;
+  const browser = (navigator.language || DEFAULT_LANG).slice(0, 2);
+  return KNOWN_LANGS.has(browser) ? browser : DEFAULT_LANG;
 }
 
 function resolveTheme(theme: Theme): "light" | "dark" {
@@ -60,6 +63,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   setLang: (lang) => {
     localStorage.setItem("sh_lang", lang);
     document.documentElement.lang = lang;
+    document.documentElement.dir = RTL_LANGS.has(lang) ? "rtl" : "ltr";
     set({ lang });
   },
 

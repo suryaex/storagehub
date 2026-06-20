@@ -3,6 +3,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useUIStore } from "@/store/uiStore";
 import { useAuthStore } from "@/store/authStore";
 import { ToastViewport } from "@/components/feedback/ToastViewport";
+import { RTL_LANGS } from "@/i18n";
 
 export function Providers({ children }: { children: ReactNode }) {
   const [client] = useState(
@@ -20,6 +21,7 @@ export function Providers({ children }: { children: ReactNode }) {
   useEffect(() => {
     applyTheme();
     document.documentElement.lang = lang;
+    document.documentElement.dir = RTL_LANGS.has(lang) ? "rtl" : "ltr";
     loadUser();
   }, [applyTheme, lang, loadUser]);
 

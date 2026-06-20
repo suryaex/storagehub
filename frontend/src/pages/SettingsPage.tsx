@@ -31,8 +31,8 @@ export function SettingsPage() {
             <Languages className="h-4 w-4" />
             {t("settings.language")}
           </h2>
-          <p className="mb-3 text-xs text-soft">{t("settings.languageDesc")}</p>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <p className="mb-3 text-xs text-soft">{t("settings.languageDesc")} · {languages.length}</p>
+          <div className="grid max-h-80 grid-cols-2 gap-2 overflow-y-auto pr-1 sm:grid-cols-4">
             {languages.map((l) => (
               <button
                 key={l.code}

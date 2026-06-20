@@ -13,11 +13,13 @@ import {
 import { dashboardService } from "@/services/dashboardService";
 import { useUIStore } from "@/store/uiStore";
 import { PageHeader } from "@/components/common/PageHeader";
+import { useTranslation } from "@/i18n";
 import { formatBytes, formatRelative, percent } from "@/utils/format";
 import { fileIconColor } from "@/utils/cn";
 
 export function DashboardPage() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const setUploadPanelOpen = useUIStore((s) => s.setUploadPanelOpen);
   const setSearchOpen = useUIStore((s) => s.setSearchOpen);
 
@@ -31,21 +33,21 @@ export function DashboardPage() {
   const pct = percent(used, quota);
 
   const quickActions = [
-    { label: "Upload", icon: Upload, onClick: () => setUploadPanelOpen(true) },
-    { label: "New Folder", icon: FolderPlus, onClick: () => navigate("/app/files") },
-    { label: "Search", icon: Search, onClick: () => setSearchOpen(true) },
-    { label: "Shared", icon: Share2, onClick: () => navigate("/app/shared") },
+    { label: t("dash.qaUpload"), icon: Upload, onClick: () => setUploadPanelOpen(true) },
+    { label: t("dash.qaNewFolder"), icon: FolderPlus, onClick: () => navigate("/app/files") },
+    { label: t("dash.qaSearch"), icon: Search, onClick: () => setSearchOpen(true) },
+    { label: t("dash.qaShared"), icon: Share2, onClick: () => navigate("/app/shared") },
   ];
 
   return (
     <div>
-      <PageHeader title="Dashboard" subtitle="Your storage at a glance" />
+      <PageHeader title={t("dash.title")} subtitle={t("dash.subtitle")} />
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
         <div className="card md:col-span-1">
           <div className="flex items-center gap-2 text-soft">
             <Database className="h-4 w-4" />
-            <span className="text-xs font-medium">Used Storage</span>
+            <span className="text-xs font-medium">{t("dash.usedStorage")}</span>
           </div>
           <p className="mt-2 text-3xl font-bold">{formatBytes(used)}</p>
           <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
@@ -54,23 +56,23 @@ export function DashboardPage() {
               style={{ width: `${pct}%` }}
             />
           </div>
-          <p className="mt-1.5 text-xs text-soft">{pct}% of {formatBytes(quota)}</p>
+          <p className="mt-1.5 text-xs text-soft">{t("dash.pctOf", { pct, total: formatBytes(quota) })}</p>
         </div>
 
         <div className="card">
           <div className="flex items-center gap-2 text-soft">
             <HardDrive className="h-4 w-4" />
-            <span className="text-xs font-medium">Free Quota</span>
+            <span className="text-xs font-medium">{t("dash.freeQuota")}</span>
           </div>
           <p className="mt-2 text-3xl font-bold">{formatBytes(Math.max(0, quota - used))}</p>
           <div className="mt-3 flex gap-4 text-xs text-soft">
-            <span>{data?.file_count ?? 0} files</span>
-            <span>{data?.folder_count ?? 0} folders</span>
+            <span>{data?.file_count ?? 0} {t("dash.files")}</span>
+            <span>{data?.folder_count ?? 0} {t("dash.folders")}</span>
           </div>
         </div>
 
         <div className="card">
-          <span className="text-xs font-medium text-soft">Quick Actions</span>
+          <span className="text-xs font-medium text-soft">{t("dash.quickActions")}</span>
           <div className="mt-3 grid grid-cols-2 gap-2">
             {quickActions.map((a) => (
               <button
@@ -90,11 +92,11 @@ export function DashboardPage() {
         <div className="card">
           <div className="mb-3 flex items-center gap-2">
             <FileText className="h-4 w-4 text-accent" />
-            <h2 className="text-sm font-semibold">Recent Files</h2>
+            <h2 className="text-sm font-semibold">{t("dash.recentFiles")}</h2>
           </div>
-          {isLoading && <p className="text-sm text-soft">Loading…</p>}
+          {isLoading && <p className="text-sm text-soft">{t("common.loading")}</p>}
           {data?.recent_files.length === 0 && (
-            <p className="py-6 text-center text-sm text-soft">No files yet</p>
+            <p className="py-6 text-center text-sm text-soft">{t("dash.noFiles")}</p>
           )}
           <div className="space-y-1">
             {data?.recent_files.slice(0, 6).map((f) => (
@@ -114,10 +116,10 @@ export function DashboardPage() {
         <div className="card">
           <div className="mb-3 flex items-center gap-2">
             <Share2 className="h-4 w-4 text-success" />
-            <h2 className="text-sm font-semibold">Shared Files</h2>
+            <h2 className="text-sm font-semibold">{t("dash.sharedFiles")}</h2>
           </div>
           {data?.shared_files.length === 0 && (
-            <p className="py-6 text-center text-sm text-soft">No shares yet</p>
+            <p className="py-6 text-center text-sm text-soft">{t("dash.noShares")}</p>
           )}
           <div className="space-y-1">
             {data?.shared_files.slice(0, 6).map((s) => (

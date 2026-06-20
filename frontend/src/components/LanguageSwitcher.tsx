@@ -28,7 +28,7 @@ export function LanguageSwitcher() {
         <Languages className="h-4 w-4" />
       </button>
       {open && (
-        <div className="glass-strong absolute right-0 top-full mt-2 w-48 overflow-hidden rounded-lg p-1 shadow-glass">
+        <div className="glass-strong absolute right-0 top-full mt-2 max-h-[70vh] w-52 overflow-y-auto rounded-lg p-1 shadow-glass">
           {languages.map((l) => (
             <button
               key={l.code}

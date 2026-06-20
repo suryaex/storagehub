@@ -6,6 +6,7 @@ import { authService } from "@/services/authService";
 import { useAuthStore } from "@/store/authStore";
 import { apiErrorMessage } from "@/services/api";
 import { useToast } from "@/hooks/useToast";
+import { useTranslation } from "@/i18n";
 
 const PROVIDER_LABELS: Record<string, string> = {
   google: "Continue with Google",
@@ -16,6 +17,7 @@ const PROVIDER_LABELS: Record<string, string> = {
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const toast = useToast((s) => s.push);
   const { user, setTokens } = useAuthStore();
   const [email, setEmail] = useState("");
@@ -30,7 +32,7 @@ export function LoginPage() {
 
   const handleLocal = async () => {
     if (!email.trim()) {
-      toast("Enter an email to continue", "error");
+      toast(t("login.enterEmail"), "error");
       return;
     }
     setLoading(true);
@@ -53,7 +55,7 @@ export function LoginPage() {
             <HardDrive className="h-7 w-7" />
           </div>
           <h1 className="text-2xl font-bold">StorageHub</h1>
-          <p className="mt-1 text-sm text-soft">Lightweight file storage platform</p>
+          <p className="mt-1 text-sm text-soft">{t("login.tagline")}</p>
         </div>
 
         <div className="space-y-2.5">
@@ -68,23 +70,23 @@ export function LoginPage() {
 
         {providers.local && (
           <div className="mt-5 border-t border-black/5 pt-5 dark:border-white/10">
-            <p className="mb-2 text-center text-xs text-soft">Local development login</p>
+            <p className="mb-2 text-center text-xs text-soft">{t("login.localLogin")}</p>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleLocal()}
-              placeholder="you@example.com"
+              placeholder={t("login.emailPlaceholder")}
               className="input mb-2"
             />
             <button onClick={handleLocal} disabled={loading} className="btn-primary w-full">
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Continue (Local Dev)"}
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : t("login.continueLocal")}
             </button>
           </div>
         )}
 
         <p className="mt-6 text-center text-[11px] text-soft">
-          Terms · Privacy · Help
+          {t("login.footer")}
         </p>
       </div>
     </div>
