@@ -28,11 +28,12 @@ export function useTranslation() {
 
   const t = useCallback(
     (key: string, vars?: Vars): string => {
-      let str = lookup(translations[lang], key) ?? lookup(translations[DEFAULT_LANG], key);
-      if (str == null) return key;
+      const raw = lookup(translations[lang], key) ?? lookup(translations[DEFAULT_LANG], key);
+      if (raw == null) return key;
+      let str: string = raw;
       if (vars) {
         for (const [k, v] of Object.entries(vars)) {
-          str = str.replaceAll(`{${k}}`, String(v));
+          str = str.split(`{${k}}`).join(String(v));
         }
       }
       return str;
