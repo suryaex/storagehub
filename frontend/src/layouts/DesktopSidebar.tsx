@@ -2,11 +2,13 @@ import { NavLink } from "react-router-dom";
 import { HardDrive } from "lucide-react";
 import { sidebarNav } from "./navItems";
 import { useAuthStore } from "@/store/authStore";
+import { useTranslation } from "@/i18n";
 import { formatBytes, percent } from "@/utils/format";
 import { cn } from "@/utils/cn";
 
 export function DesktopSidebar() {
   const user = useAuthStore((s) => s.user);
+  const { t } = useTranslation();
   const used = user?.used_bytes ?? 0;
   const quota = user?.quota_bytes ?? 1;
   const pct = percent(used, quota);
@@ -20,7 +22,7 @@ export function DesktopSidebar() {
           </div>
           <div>
             <p className="text-sm font-bold leading-tight">StorageHub</p>
-            <p className="text-[11px] text-soft">File storage</p>
+            <p className="text-[11px] text-soft">{t("sidebar.fileStorage")}</p>
           </div>
         </div>
 
@@ -29,21 +31,21 @@ export function DesktopSidebar() {
             .filter((item) => !item.adminOnly || user?.role === "admin")
             .map((item) => (
               <NavLink
-                key={item.label}
+                key={item.to}
                 to={item.to}
                 className={({ isActive }) =>
                   cn("nav-item", isActive && "nav-item-active")
                 }
               >
                 <item.icon className="h-[18px] w-[18px]" />
-                {item.label}
+                {t(`nav.${item.labelKey}`)}
               </NavLink>
             ))}
         </nav>
 
         <div className="mt-3 rounded-md bg-black/5 p-3 dark:bg-white/5">
           <div className="mb-1.5 flex items-center justify-between text-xs">
-            <span className="font-medium">Storage</span>
+            <span className="font-medium">{t("sidebar.storage")}</span>
             <span className="text-soft">{pct}%</span>
           </div>
           <div className="h-1.5 w-full overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
@@ -56,7 +58,7 @@ export function DesktopSidebar() {
             />
           </div>
           <p className="mt-1.5 text-[11px] text-soft">
-            {formatBytes(used)} of {formatBytes(quota)}
+            {t("sidebar.used", { used: formatBytes(used), total: formatBytes(quota) })}
           </p>
         </div>
       </div>

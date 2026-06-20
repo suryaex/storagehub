@@ -1,13 +1,16 @@
 import { useNavigate } from "react-router-dom";
-import { Search, Upload, Menu, HardDrive } from "lucide-react";
+import { Search, Upload, HardDrive } from "lucide-react";
 import { useUIStore } from "@/store/uiStore";
 import { useAuthStore } from "@/store/authStore";
+import { useTranslation } from "@/i18n";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 export function TopBar() {
   const navigate = useNavigate();
   const setSearchOpen = useUIStore((s) => s.setSearchOpen);
   const setUploadPanelOpen = useUIStore((s) => s.setUploadPanelOpen);
   const user = useAuthStore((s) => s.user);
+  const { t } = useTranslation();
 
   return (
     <header className="sticky top-0 z-30 px-3 pt-3">
@@ -24,7 +27,7 @@ export function TopBar() {
           className="ml-auto flex flex-1 items-center gap-2 rounded-md border border-black/10 bg-white/50 px-3 py-2 text-sm text-soft transition hover:bg-white/70 dark:border-white/10 dark:bg-white/5 sm:max-w-xs"
         >
           <Search className="h-4 w-4" />
-          <span className="hidden sm:inline">Search…</span>
+          <span className="hidden sm:inline">{t("top.searchPlaceholder")}</span>
           <kbd className="ml-auto hidden rounded bg-black/10 px-1.5 py-0.5 text-[10px] dark:bg-white/10 sm:inline">
             ⌘K
           </kbd>
@@ -32,8 +35,10 @@ export function TopBar() {
 
         <button onClick={() => setUploadPanelOpen(true)} className="btn-primary !min-h-0 px-3 py-2">
           <Upload className="h-4 w-4" />
-          <span className="hidden sm:inline">Upload</span>
+          <span className="hidden sm:inline">{t("top.upload")}</span>
         </button>
+
+        <LanguageSwitcher />
 
         <button
           onClick={() => navigate("/app/profile")}

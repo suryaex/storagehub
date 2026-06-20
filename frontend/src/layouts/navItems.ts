@@ -13,25 +13,26 @@ import {
 
 export interface NavItem {
   to: string;
-  label: string;
+  /** Kunci i18n di namespace `nav` (mis. "dashboard" -> t("nav.dashboard")). */
+  labelKey: string;
   icon: LucideIcon;
   adminOnly?: boolean;
 }
 
 export const sidebarNav: NavItem[] = [
-  { to: "/app/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/app/files", label: "Files", icon: Folder },
-  { to: "/app/shared", label: "Shared", icon: Share2 },
-  { to: "/app/search", label: "Search", icon: Search },
-  { to: "/app/trash", label: "Trash", icon: Trash2 },
-  { to: "/app/admin", label: "Admin", icon: Shield, adminOnly: true },
-  { to: "/app/settings", label: "Settings", icon: Settings },
+  { to: "/app/dashboard", labelKey: "dashboard", icon: LayoutDashboard },
+  { to: "/app/files", labelKey: "files", icon: Folder },
+  { to: "/app/shared", labelKey: "shared", icon: Share2 },
+  { to: "/app/search", labelKey: "search", icon: Search },
+  { to: "/app/trash", labelKey: "trash", icon: Trash2 },
+  { to: "/app/admin", labelKey: "admin", icon: Shield, adminOnly: true },
+  { to: "/app/settings", labelKey: "settings", icon: Settings },
 ];
 
 export const mobileNav: NavItem[] = [
-  { to: "/app/dashboard", label: "Home", icon: LayoutDashboard },
-  { to: "/app/files", label: "Files", icon: Folder },
-  { to: "/app/files", label: "Upload", icon: Upload },
-  { to: "/app/shared", label: "Shared", icon: Share2 },
-  { to: "/app/profile", label: "Profile", icon: User },
+  { to: "/app/dashboard", labelKey: "home", icon: LayoutDashboard },
+  { to: "/app/files", labelKey: "files", icon: Folder },
+  { to: "/app/files", labelKey: "upload", icon: Upload },
+  { to: "/app/shared", labelKey: "shared", icon: Share2 },
+  { to: "/app/profile", labelKey: "profile", icon: User },
 ];

@@ -1,14 +1,16 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { mobileNav } from "./navItems";
+import { useTranslation } from "@/i18n";
 import { cn } from "@/utils/cn";
 
 export function MobileBottomNav() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 px-3 pb-3 lg:hidden">
       <div className="glass-strong flex items-center justify-around rounded-xl px-2 py-1.5">
         {mobileNav.map((item, idx) => {
-          const isUpload = item.label === "Upload";
+          const isUpload = item.labelKey === "upload";
           if (isUpload) {
             return (
               <button
@@ -33,7 +35,7 @@ export function MobileBottomNav() {
               }
             >
               <item.icon className="h-5 w-5" />
-              {item.label}
+              {t(`nav.${item.labelKey}`)}
             </NavLink>
           );
         })}

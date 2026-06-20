@@ -14,12 +14,14 @@ export function Providers({ children }: { children: ReactNode }) {
       }),
   );
   const applyTheme = useUIStore((s) => s.applyTheme);
+  const lang = useUIStore((s) => s.lang);
   const loadUser = useAuthStore((s) => s.loadUser);
 
   useEffect(() => {
     applyTheme();
+    document.documentElement.lang = lang;
     loadUser();
-  }, [applyTheme, loadUser]);
+  }, [applyTheme, lang, loadUser]);
 
   return (
     <QueryClientProvider client={client}>

@@ -102,3 +102,4 @@ export interface SearchResults {
 
 export type ViewMode = "grid" | "list" | "column";
 export type Theme = "light" | "dark" | "system";
+export type Language = "en" | "id" | "ja" | "zh";
