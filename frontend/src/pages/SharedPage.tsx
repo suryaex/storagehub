@@ -7,8 +7,10 @@ import { Spinner } from "@/components/feedback/LoadingScreen";
 import { useToast } from "@/hooks/useToast";
 import { formatDate } from "@/utils/format";
 import { apiErrorMessage } from "@/services/api";
+import { useTranslation } from "@/i18n";
 
 export function SharedPage() {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const toast = useToast((s) => s.push);
   const { data, isLoading } = useQuery({ queryKey: ["shares"], queryFn: shareService.list });
@@ -16,13 +18,13 @@ export function SharedPage() {
   const copy = (url?: string) => {
     if (!url) return;
     navigator.clipboard.writeText(url);
-    toast("Link copied", "success");
+    toast(t("shared.linkCopied"), "success");
   };
 
   const revoke = async (id: number) => {
     try {
       await shareService.revoke(id);
-      toast("Share revoked", "success");
+      toast(t("shared.shareRevoked"), "success");
       qc.invalidateQueries({ queryKey: ["shares"] });
     } catch (e) {
       toast(apiErrorMessage(e), "error");
@@ -31,14 +33,14 @@ export function SharedPage() {
 
   return (
     <div>
-      <PageHeader title="Shared" subtitle="Links you have created" />
+      <PageHeader title={t("shared.title")} subtitle={t("shared.subtitle")} />
       {isLoading && (
         <div className="flex justify-center py-20">
           <Spinner />
         </div>
       )}
       {!isLoading && data?.length === 0 && (
-        <EmptyState icon={Share2} title="No shares yet" description="Share a file or folder to see it here." />
+        <EmptyState icon={Share2} title={t("shared.noShares")} description={t("shared.noSharesDesc")} />
       )}
       <div className="space-y-2">
         {data?.map((s) => (
@@ -54,11 +56,11 @@ export function SharedPage() {
                     s.is_active ? "bg-success/15 text-success" : "bg-danger/15 text-danger"
                   }`}
                 >
-                  {s.is_active ? "Active" : "Revoked"}
+                  {s.is_active ? t("shared.active") : t("shared.revoked")}
                 </span>
                 {s.has_password && (
                   <span className="flex items-center gap-1">
-                    <Lock className="h-3 w-3" /> Password
+                    <Lock className="h-3 w-3" /> {t("shared.password")}
                   </span>
                 )}
                 {s.expires_at && (
@@ -66,7 +68,7 @@ export function SharedPage() {
                     <Clock className="h-3 w-3" /> {formatDate(s.expires_at)}
                   </span>
                 )}
-                <span>{s.download_count} downloads</span>
+                <span>{t("shared.downloads", { n: s.download_count })}</span>
               </div>
             </div>
             <div className="flex items-center gap-1">

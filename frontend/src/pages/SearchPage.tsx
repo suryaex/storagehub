@@ -7,8 +7,10 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { formatBytes } from "@/utils/format";
 import { fileIconColor } from "@/utils/cn";
+import { useTranslation } from "@/i18n";
 
 export function SearchPage() {
+  const { t } = useTranslation();
   const [q, setQ] = useState("");
   const navigate = useNavigate();
 
@@ -23,7 +25,7 @@ export function SearchPage() {
 
   return (
     <div>
-      <PageHeader title="Search" subtitle="Find files, folders, and shares" />
+      <PageHeader title={t("search.title")} subtitle={t("search.subtitle")} />
 
       <div className="glass mb-5 flex items-center gap-3 rounded-lg px-4 py-3">
         <Search className="h-5 w-5 text-soft" />
@@ -31,37 +33,37 @@ export function SearchPage() {
           autoFocus
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Search everything…"
+          placeholder={t("search.placeholder")}
           className="flex-1 bg-transparent text-base outline-none placeholder:text-soft"
         />
         {isFetching && <span className="text-xs text-soft">…</span>}
       </div>
 
       {q && totalResults === 0 && !isFetching && (
-        <EmptyState icon={SearchX} title="No results found" description="Try another keyword." />
+        <EmptyState icon={SearchX} title={t("search.noResults")} description={t("search.noResultsDesc")} />
       )}
 
       {!q && (
-        <EmptyState icon={Search} title="Search your storage" description="Type to find files and folders." />
+        <EmptyState icon={Search} title={t("search.emptyTitle")} description={t("search.emptyDesc")} />
       )}
 
       {totalResults > 0 && (
         <div className="space-y-4">
           {data!.folders.length > 0 && (
-            <Section title="Folders">
+            <Section title={t("search.folders")}>
               {data!.folders.map((f) => (
                 <Row
                   key={f.id}
                   icon={<Folder className="h-5 w-5 text-accent" />}
                   title={f.name}
-                  subtitle="Folder"
+                  subtitle={t("search.folder")}
                   onClick={() => navigate(`/app/files/${f.id}`)}
                 />
               ))}
             </Section>
           )}
           {data!.files.length > 0 && (
-            <Section title="Files">
+            <Section title={t("search.filesGroup")}>
               {data!.files.map((f) => (
                 <Row
                   key={f.id}
@@ -74,13 +76,13 @@ export function SearchPage() {
             </Section>
           )}
           {data!.shares.length > 0 && (
-            <Section title="Shares">
+            <Section title={t("search.shares")}>
               {data!.shares.map((s) => (
                 <Row
                   key={s.id}
                   icon={<Share2 className="h-5 w-5 text-success" />}
                   title={s.token}
-                  subtitle="Share link"
+                  subtitle={t("search.shareLink")}
                   onClick={() => navigate("/app/shared")}
                 />
               ))}

@@ -25,8 +25,10 @@ import { PromptModal } from "@/components/common/PromptModal";
 import type { ItemAction } from "@/components/file/ItemMenu";
 import type { FileItem, Folder } from "@/types";
 import { cn } from "@/utils/cn";
+import { useTranslation } from "@/i18n";
 
 export function FilesPage() {
+  const { t } = useTranslation();
   const { folderId } = useParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -69,7 +71,7 @@ export function FilesPage() {
     const arr = Array.from(files);
     if (arr.length === 0) return;
     enqueue(currentFolderId, arr, refresh);
-    toast(`Uploading ${arr.length} file(s)`, "info");
+    toast(t("files.uploadingN", { n: arr.length }), "info");
   };
 
   const onFolderAction = async (folder: Folder, action: ItemAction) => {
@@ -80,10 +82,10 @@ export function FilesPage() {
         setRenameTarget({ type: "folder", id: folder.id, name: folder.name });
       if (action === "delete") {
         await folderService.remove(folder.id);
-        toast("Folder moved to trash", "success");
+        toast(t("files.folderTrashed"), "success");
         refresh();
       }
-      if (action === "move") toast("Use drag & drop or rename for now", "info");
+      if (action === "move") toast(t("files.moveHint"), "info");
     } catch (e) {
       toast(apiErrorMessage(e), "error");
     }
@@ -92,7 +94,7 @@ export function FilesPage() {
   const onFileAction = async (file: FileItem, action: ItemAction) => {
     try {
       if (action === "download" || action === "open") {
-        toast("Downloading…", "info");
+        toast(t("files.downloading"), "info");
         await fileService.download(file.id, file.filename);
       }
       if (action === "share") setShareTarget({ file });
@@ -100,7 +102,7 @@ export function FilesPage() {
         setRenameTarget({ type: "file", id: file.id, name: file.filename });
       if (action === "delete") {
         await fileService.remove(file.id);
-        toast("File moved to trash", "success");
+        toast(t("files.fileTrashed"), "success");
         refresh();
       }
     } catch (e) {
@@ -113,7 +115,7 @@ export function FilesPage() {
     try {
       if (renameTarget.type === "folder") await folderService.rename(renameTarget.id, value);
       else await fileService.rename(renameTarget.id, value);
-      toast("Renamed", "success");
+      toast(t("files.renamed"), "success");
       setRenameTarget(null);
       refresh();
     } catch (e) {
@@ -124,7 +126,7 @@ export function FilesPage() {
   const handleNewFolder = async (name: string) => {
     try {
       await folderService.create(name, currentFolderId);
-      toast("Folder created", "success");
+      toast(t("files.folderCreated"), "success");
       setNewFolderOpen(false);
       refresh();
     } catch (e) {
@@ -172,14 +174,14 @@ export function FilesPage() {
           </div>
           <button onClick={() => setNewFolderOpen(true)} className="btn-glass !min-h-0 px-3 py-2">
             <FolderPlus className="h-4 w-4" />
-            <span className="hidden sm:inline">New</span>
+            <span className="hidden sm:inline">{t("files.new")}</span>
           </button>
           <button
             onClick={() => inputRef.current?.click()}
             className="btn-primary !min-h-0 px-3 py-2"
           >
             <Upload className="h-4 w-4" />
-            <span className="hidden sm:inline">Upload</span>
+            <span className="hidden sm:inline">{t("files.upload")}</span>
           </button>
         </div>
       </div>
@@ -204,11 +206,11 @@ export function FilesPage() {
       {isEmpty && (
         <EmptyState
           icon={FileX}
-          title="No files yet"
-          description="Upload your first file or create a folder to get started."
+          title={t("files.noFilesTitle")}
+          description={t("files.noFilesDesc")}
           action={
             <button onClick={() => inputRef.current?.click()} className="btn-primary">
-              <Upload className="h-4 w-4" /> Upload
+              <Upload className="h-4 w-4" /> {t("files.upload")}
             </button>
           }
         />
@@ -238,22 +240,22 @@ export function FilesPage() {
 
       {dragging && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-lg bg-accent/10">
-          <p className="glass-strong rounded-lg px-5 py-3 text-sm font-medium">Drop files to upload</p>
+          <p className="glass-strong rounded-lg px-5 py-3 text-sm font-medium">{t("files.dropToUpload")}</p>
         </div>
       )}
 
       <ShareModal open={!!shareTarget} onClose={() => setShareTarget(null)} target={shareTarget} />
       <PromptModal
         open={newFolderOpen}
-        title="New Folder"
-        label="Folder name"
-        confirmText="Create"
+        title={t("files.newFolder")}
+        label={t("files.folderName")}
+        confirmText={t("files.create")}
         onConfirm={handleNewFolder}
         onClose={() => setNewFolderOpen(false)}
       />
       <PromptModal
         open={!!renameTarget}
-        title="Rename"
+        title={t("files.rename")}
         initialValue={renameTarget?.name}
         onConfirm={handleRename}
         onClose={() => setRenameTarget(null)}
@@ -269,12 +271,13 @@ function Breadcrumbs({
   folder?: Folder;
   onNavigate: (id: number | null) => void;
 }) {
+  const { t } = useTranslation();
   const isRoot = !folder || folder.parent_id === null;
   return (
     <div className="glass flex items-center gap-1 rounded-md px-3 py-2 text-sm">
       <button onClick={() => onNavigate(null)} className="flex items-center gap-1 text-soft hover:text-accent">
         <Home className="h-4 w-4" />
-        Home
+        {t("files.home")}
       </button>
       {!isRoot && folder && (
         <>

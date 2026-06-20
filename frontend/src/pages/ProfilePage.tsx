@@ -3,8 +3,10 @@ import { LogOut, Mail, Shield, HardDrive } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
 import { PageHeader } from "@/components/common/PageHeader";
 import { formatBytes, percent } from "@/utils/format";
+import { useTranslation } from "@/i18n";
 
 export function ProfilePage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
 
@@ -18,7 +20,7 @@ export function ProfilePage() {
 
   return (
     <div>
-      <PageHeader title="Profile" subtitle="Account and session" />
+      <PageHeader title={t("profile.title")} subtitle={t("profile.subtitle")} />
 
       <div className="card">
         <div className="flex items-center gap-4">
@@ -38,18 +40,18 @@ export function ProfilePage() {
         </div>
 
         <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <InfoTile icon={<Shield className="h-4 w-4" />} label="Role" value={user.role} />
-          <InfoTile icon={<HardDrive className="h-4 w-4" />} label="Status" value={user.status} />
+          <InfoTile icon={<Shield className="h-4 w-4" />} label={t("profile.role")} value={user.role} />
+          <InfoTile icon={<HardDrive className="h-4 w-4" />} label={t("profile.status")} value={user.status} />
           <InfoTile
             icon={<HardDrive className="h-4 w-4" />}
-            label="Storage"
+            label={t("profile.storage")}
             value={`${formatBytes(user.used_bytes)} / ${formatBytes(user.quota_bytes)}`}
           />
         </div>
 
         <div className="mt-4">
           <div className="mb-1.5 flex justify-between text-xs text-soft">
-            <span>Storage used</span>
+            <span>{t("profile.storageUsed")}</span>
             <span>{pct}%</span>
           </div>
           <div className="h-2 w-full overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
@@ -61,7 +63,7 @@ export function ProfilePage() {
         </div>
 
         <button onClick={handleLogout} className="btn-ghost mt-6 w-full text-danger">
-          <LogOut className="h-4 w-4" /> Log out
+          <LogOut className="h-4 w-4" /> {t("profile.logout")}
         </button>
       </div>
     </div>
