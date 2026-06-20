@@ -5,10 +5,12 @@ import { Search, File as FileIcon, Folder, Share2, CornerDownLeft } from "lucide
 import { useUIStore } from "@/store/uiStore";
 import { searchService } from "@/services/searchService";
 import { formatBytes } from "@/utils/format";
+import { useTranslation } from "@/i18n";
 
 const RECENT_KEY = "sh_recent_searches";
 
 export function SearchOverlay() {
+  const { t } = useTranslation();
   const open = useUIStore((s) => s.searchOpen);
   const setOpen = useUIStore((s) => s.setSearchOpen);
   const [q, setQ] = useState("");
@@ -58,7 +60,7 @@ export function SearchOverlay() {
             ref={inputRef}
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search files, folders, shares…"
+            placeholder={t("searchOverlay.placeholder")}
             className="flex-1 bg-transparent text-base outline-none placeholder:text-soft"
           />
           {isFetching && <span className="text-xs text-soft">…</span>}
@@ -67,9 +69,9 @@ export function SearchOverlay() {
         <div className="max-h-[50vh] overflow-y-auto p-2">
           {!q && (
             <div className="p-2">
-              <p className="px-2 py-1 text-xs font-medium text-soft">Recent searches</p>
+              <p className="px-2 py-1 text-xs font-medium text-soft">{t("searchOverlay.recentSearches")}</p>
               {recent.length === 0 && (
-                <p className="px-2 py-3 text-sm text-soft">No recent searches</p>
+                <p className="px-2 py-3 text-sm text-soft">{t("searchOverlay.noRecent")}</p>
               )}
               {recent.map((term) => (
                 <button
@@ -90,7 +92,7 @@ export function SearchOverlay() {
                   key={`folder-${f.id}`}
                   icon={<Folder className="h-4 w-4 text-accent" />}
                   title={f.name}
-                  subtitle="Folder"
+                  subtitle={t("searchOverlay.folder")}
                   onClick={() => go(`/app/files/${f.id}`, q)}
                 />
               ))}
@@ -108,14 +110,14 @@ export function SearchOverlay() {
                   key={`share-${s.id}`}
                   icon={<Share2 className="h-4 w-4 text-success" />}
                   title={s.token}
-                  subtitle="Share"
+                  subtitle={t("searchOverlay.share")}
                   onClick={() => go("/app/shared", q)}
                 />
               ))}
               {data.files.length + data.folders.length + data.shares.length === 0 &&
                 !isFetching && (
                   <p className="px-3 py-6 text-center text-sm text-soft">
-                    No results for “{q}”
+                    {t("searchOverlay.noResultsFor", { q })}
                   </p>
                 )}
             </>

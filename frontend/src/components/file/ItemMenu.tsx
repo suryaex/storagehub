@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { MoreVertical, Download, Share2, Pencil, Trash2, FolderInput } from "lucide-react";
+import { useTranslation } from "@/i18n";
 
 export type ItemAction = "open" | "download" | "share" | "rename" | "move" | "delete";
 
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export function ItemMenu({ isFolder, onAction }: Props) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -21,11 +23,11 @@ export function ItemMenu({ isFolder, onAction }: Props) {
   }, []);
 
   const items: { action: ItemAction; label: string; icon: typeof Pencil; danger?: boolean }[] = [
-    ...(!isFolder ? [{ action: "download" as const, label: "Download", icon: Download }] : []),
-    { action: "share", label: "Share", icon: Share2 },
-    { action: "rename", label: "Rename", icon: Pencil },
-    { action: "move", label: "Move", icon: FolderInput },
-    { action: "delete", label: "Delete", icon: Trash2, danger: true },
+    ...(!isFolder ? [{ action: "download" as const, label: t("common.download"), icon: Download }] : []),
+    { action: "share", label: t("common.share"), icon: Share2 },
+    { action: "rename", label: t("common.rename"), icon: Pencil },
+    { action: "move", label: t("common.move"), icon: FolderInput },
+    { action: "delete", label: t("common.delete"), icon: Trash2, danger: true },
   ];
 
   return (

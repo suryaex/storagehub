@@ -2,8 +2,10 @@ import { CheckCircle2, X, AlertCircle, UploadCloud } from "lucide-react";
 import { useUploadStore } from "@/store/uploadStore";
 import { formatBytes } from "@/utils/format";
 import { cn } from "@/utils/cn";
+import { useTranslation } from "@/i18n";
 
 export function UploadManager() {
+  const { t } = useTranslation();
   const { items, cancel, clearCompleted } = useUploadStore();
   const active = items.filter((i) => i.status !== "completed" || true);
 
@@ -15,10 +17,10 @@ export function UploadManager() {
         <div className="flex items-center justify-between border-b border-black/5 px-4 py-3 dark:border-white/10">
           <div className="flex items-center gap-2">
             <UploadCloud className="h-4 w-4 text-accent" />
-            <span className="text-sm font-semibold">Uploads</span>
+            <span className="text-sm font-semibold">{t("upload.title")}</span>
           </div>
           <button onClick={clearCompleted} className="text-xs text-soft hover:text-accent">
-            Clear done
+            {t("upload.clearDone")}
           </button>
         </div>
         <div className="max-h-[40vh] overflow-y-auto">
@@ -53,10 +55,10 @@ export function UploadManager() {
                 )}
               >
                 {item.status === "uploading" && `${item.progress}% · ${formatBytes(item.size)}`}
-                {item.status === "queued" && "Queued"}
-                {item.status === "completed" && "Completed"}
-                {item.status === "cancelled" && "Cancelled"}
-                {item.status === "failed" && (item.error || "Failed")}
+                {item.status === "queued" && t("upload.queued")}
+                {item.status === "completed" && t("upload.completed")}
+                {item.status === "cancelled" && t("upload.cancelled")}
+                {item.status === "failed" && (item.error || t("upload.failed"))}
               </p>
             </div>
           ))}

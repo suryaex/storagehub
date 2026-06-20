@@ -9,7 +9,7 @@ import type { Language } from "@/types";
 export const DEFAULT_LANG: Language = "en";
 
 const en = {
-  common: { loading: "Loading…", save: "Save", cancel: "Cancel", search: "Search" },
+  common: { loading: "Loading…", save: "Save", cancel: "Cancel", search: "Search", name: "Name", download: "Download", share: "Share", rename: "Rename", move: "Move", delete: "Delete", open: "Open" },
   nav: { dashboard: "Dashboard", files: "Files", shared: "Shared", search: "Search", trash: "Trash", admin: "Admin", settings: "Settings", home: "Home", upload: "Upload", profile: "Profile" },
   top: { searchPlaceholder: "Search…", upload: "Upload" },
   sidebar: { fileStorage: "File storage", storage: "Storage", used: "{used} of {total}" },
@@ -24,6 +24,9 @@ const en = {
   admin: { title: "Admin", subtitle: "Manage users, quotas and activity", adminOnly: "Admin only", adminOnlyDesc: "You do not have access to this area.", users: "Users", files: "Files", storage: "Storage", shares: "Shares", tabUsers: "Users", tabStorage: "Storage & Nodes", tabLogs: "Activity Logs", colName: "Name", colEmail: "Email", colRole: "Role", colStatus: "Status", colStorage: "Storage", colActions: "Actions", quota: "Quota", disable: "Disable", enable: "Enable", noActivity: "No activity yet", userUpdated: "User updated", quotaUpdated: "Quota updated", quotaFor: "Quota for {name}", quotaGb: "Quota (GB)", update: "Update", active: "active", disabled: "disabled" },
   publicShare: { brand: "StorageHub Share", loading: "Loading…", unavailable: "This link is unavailable", unavailableDesc: "It may have expired or been revoked.", folder: "Folder", passwordProtected: "This share is password protected", enterPassword: "Enter password", unlock: "Unlock", download: "Download", incorrectPassword: "Incorrect password" },
   notFound: { message: "This page could not be found.", back: "Back to Dashboard" },
+  shareModal: { title: "Share", creating: "Creating…", createLink: "Create link", done: "Done", sharing: "Sharing {name}", item: "item", publicLink: "Public link", password: "Password", setPassword: "Set a password", expires: "Expires", maxDownloads: "Max downloads", linkCreated: "Share link created", passwordProtected: "Password protected" },
+  upload: { title: "Uploads", clearDone: "Clear done", queued: "Queued", completed: "Completed", cancelled: "Cancelled", failed: "Failed" },
+  searchOverlay: { placeholder: "Search files, folders, shares…", recentSearches: "Recent searches", noRecent: "No recent searches", folder: "Folder", share: "Share", noResultsFor: 'No results for "{q}"' },
 };
 
 // `en` adalah referensi LENGKAP. Bahasa lain boleh mengisi sebagian saja —
@@ -33,7 +36,7 @@ type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]>
 type LocaleDict = DeepPartial<Dict>;
 
 const id: LocaleDict = {
-  common: { loading: "Memuat…", save: "Simpan", cancel: "Batal", search: "Cari" },
+  common: { loading: "Memuat…", save: "Simpan", cancel: "Batal", search: "Cari", name: "Nama", download: "Unduh", share: "Bagikan", rename: "Ganti Nama", move: "Pindah", delete: "Hapus", open: "Buka" },
   nav: { dashboard: "Dasbor", files: "Berkas", shared: "Dibagikan", search: "Cari", trash: "Sampah", admin: "Admin", settings: "Pengaturan", home: "Beranda", upload: "Unggah", profile: "Profil" },
   top: { searchPlaceholder: "Cari…", upload: "Unggah" },
   sidebar: { fileStorage: "Penyimpanan berkas", storage: "Penyimpanan", used: "{used} dari {total}" },
@@ -48,6 +51,9 @@ const id: LocaleDict = {
   admin: { title: "Admin", subtitle: "Kelola pengguna, kuota, dan aktivitas", adminOnly: "Khusus admin", adminOnlyDesc: "Anda tidak memiliki akses ke area ini.", users: "Pengguna", files: "Berkas", storage: "Penyimpanan", shares: "Dibagikan", tabUsers: "Pengguna", tabStorage: "Penyimpanan & Node", tabLogs: "Log Aktivitas", colName: "Nama", colEmail: "Email", colRole: "Peran", colStatus: "Status", colStorage: "Penyimpanan", colActions: "Aksi", quota: "Kuota", disable: "Nonaktifkan", enable: "Aktifkan", noActivity: "Belum ada aktivitas", userUpdated: "Pengguna diperbarui", quotaUpdated: "Kuota diperbarui", quotaFor: "Kuota untuk {name}", quotaGb: "Kuota (GB)", update: "Perbarui", active: "aktif", disabled: "nonaktif" },
   publicShare: { brand: "Bagikan StorageHub", loading: "Memuat…", unavailable: "Tautan ini tidak tersedia", unavailableDesc: "Mungkin sudah kedaluwarsa atau dicabut.", folder: "Folder", passwordProtected: "Bagikan ini dilindungi kata sandi", enterPassword: "Masukkan kata sandi", unlock: "Buka", download: "Unduh", incorrectPassword: "Kata sandi salah" },
   notFound: { message: "Halaman ini tidak dapat ditemukan.", back: "Kembali ke Dasbor" },
+  shareModal: { title: "Bagikan", creating: "Membuat…", createLink: "Buat tautan", done: "Selesai", sharing: "Membagikan {name}", item: "item", publicLink: "Tautan publik", password: "Kata Sandi", setPassword: "Atur kata sandi", expires: "Kedaluwarsa", maxDownloads: "Maks unduhan", linkCreated: "Tautan berbagi dibuat", passwordProtected: "Dilindungi kata sandi" },
+  upload: { title: "Unggahan", clearDone: "Bersihkan selesai", queued: "Antre", completed: "Selesai", cancelled: "Dibatalkan", failed: "Gagal" },
+  searchOverlay: { placeholder: "Cari berkas, folder, bagikan…", recentSearches: "Pencarian terbaru", noRecent: "Belum ada pencarian", folder: "Folder", share: "Bagikan", noResultsFor: 'Tidak ada hasil untuk "{q}"' },
 };
 
 const ms: LocaleDict = {

@@ -6,6 +6,7 @@ import { shareService } from "@/services/shareService";
 import { apiErrorMessage } from "@/services/api";
 import { useToast } from "@/hooks/useToast";
 import type { FileItem, Folder, Share } from "@/types";
+import { useTranslation } from "@/i18n";
 
 interface Props {
   open: boolean;
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export function ShareModal({ open, onClose, target }: Props) {
+  const { t } = useTranslation();
   const toast = useToast((s) => s.push);
   const [mode, setMode] = useState<"public" | "password">("public");
   const [password, setPassword] = useState("");
@@ -33,12 +35,12 @@ export function ShareModal({ open, onClose, target }: Props) {
       }),
     onSuccess: (share) => {
       setCreated(share);
-      toast("Share link created", "success");
+      toast(t("shareModal.linkCreated"), "success");
     },
     onError: (e) => toast(apiErrorMessage(e), "error"),
   });
 
-  const name = target?.file?.filename ?? target?.folder?.name ?? "item";
+  const name = target?.file?.filename ?? target?.folder?.name ?? t("shareModal.item");
 
   const copy = () => {
     if (!created?.share_url) return;
@@ -60,30 +62,30 @@ export function ShareModal({ open, onClose, target }: Props) {
     <Modal
       open={open}
       onClose={close}
-      title="Share"
+      title={t("shareModal.title")}
       footer={
         !created ? (
           <>
             <button onClick={close} className="btn-ghost">
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               onClick={() => mutation.mutate()}
               disabled={mutation.isPending || (mode === "password" && !password)}
               className="btn-primary"
             >
-              {mutation.isPending ? "Creating…" : "Create link"}
+              {mutation.isPending ? t("shareModal.creating") : t("shareModal.createLink")}
             </button>
           </>
         ) : (
           <button onClick={close} className="btn-primary">
-            Done
+            {t("shareModal.done")}
           </button>
         )
       }
     >
       <p className="mb-4 text-sm text-soft">
-        Sharing <span className="font-medium text-ink dark:text-white">{name}</span>
+        {t("shareModal.sharing", { name })}
       </p>
 
       {!created ? (
@@ -99,27 +101,27 @@ export function ShareModal({ open, onClose, target }: Props) {
                     : "border-black/10 text-soft dark:border-white/10"
                 }`}
               >
-                {m === "public" ? "Public link" : "Password"}
+                {m === "public" ? t("shareModal.publicLink") : t("shareModal.password")}
               </button>
             ))}
           </div>
 
           {mode === "password" && (
             <div>
-              <label className="mb-1 block text-xs font-medium text-soft">Password</label>
+              <label className="mb-1 block text-xs font-medium text-soft">{t("shareModal.password")}</label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="input"
-                placeholder="Set a password"
+                placeholder={t("shareModal.setPassword")}
               />
             </div>
           )}
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-xs font-medium text-soft">Expires</label>
+              <label className="mb-1 block text-xs font-medium text-soft">{t("shareModal.expires")}</label>
               <input
                 type="date"
                 value={expiresAt}
@@ -128,7 +130,7 @@ export function ShareModal({ open, onClose, target }: Props) {
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-soft">Max downloads</label>
+              <label className="mb-1 block text-xs font-medium text-soft">{t("shareModal.maxDownloads")}</label>
               <input
                 type="number"
                 min={1}
@@ -154,7 +156,7 @@ export function ShareModal({ open, onClose, target }: Props) {
             </button>
           </div>
           {created.has_password && (
-            <p className="text-xs text-soft">🔒 Password protected</p>
+            <p className="text-xs text-soft">🔒 {t("shareModal.passwordProtected")}</p>
           )}
         </div>
       )}

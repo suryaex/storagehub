@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Modal } from "./Modal";
+import { useTranslation } from "@/i18n";
 
 interface Props {
   open: boolean;
@@ -14,12 +15,13 @@ interface Props {
 export function PromptModal({
   open,
   title,
-  label = "Name",
+  label,
   initialValue = "",
-  confirmText = "Save",
+  confirmText,
   onConfirm,
   onClose,
 }: Props) {
+  const { t } = useTranslation();
   const [value, setValue] = useState(initialValue);
   useEffect(() => setValue(initialValue), [initialValue, open]);
 
@@ -31,19 +33,19 @@ export function PromptModal({
       footer={
         <>
           <button onClick={onClose} className="btn-ghost">
-            Cancel
+            {t("common.cancel")}
           </button>
           <button
             onClick={() => value.trim() && onConfirm(value.trim())}
             disabled={!value.trim()}
             className="btn-primary"
           >
-            {confirmText}
+            {confirmText ?? t("common.save")}
           </button>
         </>
       }
     >
-      <label className="mb-1 block text-xs font-medium text-soft">{label}</label>
+      <label className="mb-1 block text-xs font-medium text-soft">{label ?? t("common.name")}</label>
       <input
         autoFocus
         value={value}
