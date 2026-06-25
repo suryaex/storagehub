@@ -223,6 +223,7 @@ It creates the array with `mdadm`, formats ext4, mounts it, and persists it to
 | **Trash** | Soft delete, restore, permanent delete, retention. |
 | **Quotas** | Per-user storage quota enforced on upload. |
 | **Admin** | User management, quota control, activity logs, system settings. |
+| **Updates** | In-app self-update — Settings → *Software update* checks the latest GitHub release; an admin clicks **Update & restart** (pull → rebuild → restart). See [`docs/SELF_UPDATE.md`](docs/SELF_UPDATE.md). |
 | **Backups** | Service log ingest (`POST /api/v1/ingest/logs`, `X-API-Key`) — **SecureOps LogSync** archives ARM/MCU + router/switch/firewall logs here. |
 | **Networking** | Reachable over LAN, public IP, or **Tailscale/WireGuard VPN**; coexists with SecureOps (`:8080`/`:8010`). |
 | **Security** | Boot guard on default `SECRET_KEY`, security headers, path-traversal-safe ingest, hashed refresh tokens. |
