@@ -39,12 +39,23 @@ mobile, tablet, and desktop.
 > Python/Node libraries are installed automatically **inside the containers** —
 > nothing else to install on the host. (On Windows/macOS, Docker Desktop is required.)
 
+### Prerequisites
+- **Git** + **Docker & Docker Compose**. On **Linux** the installer auto-installs Docker if
+  missing; on **Windows/macOS** install **Docker Desktop** and start it first.
+- Port **8080** free (or set `HTTP_PORT`). Everything else installs **inside the containers**.
+
+### Step by step
+
 **Linux / macOS**
 ```bash
+# 1) Get the source
 git clone https://github.com/suryaex/storagehub.git
 cd storagehub
+
+# 2) Install + run (auto: Docker, .env + secrets, LAN detect, build, health-wait)
 chmod +x install.sh
 ./install.sh
+# 3) Open the printed URL (http://localhost:8080). Done.
 ```
 
 **Windows (PowerShell)**
@@ -70,15 +81,23 @@ When it finishes, the installer prints both URLs:
 **First login:** with no OAuth configured, click **“Continue (Local Dev)”** on the
 sign-in screen. The **first account created becomes an admin** automatically.
 
-### Installer commands
-```bash
-./install.sh            # build + start (auto LAN config)
-./install.sh --prod     # production overlay: restart=always + log rotation
-./install.sh --rebuild  # rebuild images from scratch
-./install.sh --down     # stop the stack
-./install.sh --reset    # stop and DELETE all data (DB + files)
-```
-Windows equivalents: `.\install.ps1 -Prod | -Rebuild | -Down | -Reset`
+### Command reference
+
+| Command | What it does |
+|---|---|
+| `git clone https://github.com/suryaex/storagehub.git && cd storagehub` | Get the source |
+| `./install.sh` | Build + start (auto LAN config) |
+| `make install` | Same as `./install.sh` |
+| `./install.sh --prod` | Production overlay: `restart=always` + log rotation |
+| `./install.sh --rebuild` | Rebuild images from scratch |
+| `./install.sh --down` | Stop the stack |
+| `./install.sh --reset` | Stop and **DELETE** all data (DB + files) |
+| `./install.sh --tailscale` | Bind to the Tailscale VPN address |
+| `./install.sh --public` | Auto-detect + advertise the public IP |
+| `HTTP_PORT=9090 ./install.sh` | Use a different port |
+| `docker compose pull && docker compose up -d` | Run from pre-built GHCR images |
+| `docker compose logs -f` | Tail live logs |
+| `.\install.ps1` | Windows (PowerShell) — flags: `-Prod` `-Rebuild` `-Down` `-Reset` |
 
 ### 🌐 Run on your local network (LAN)
 
