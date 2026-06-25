@@ -1,6 +1,7 @@
 import { Sun, Moon, Monitor, LayoutGrid, List, Columns3, Languages } from "lucide-react";
 import { useUIStore } from "@/store/uiStore";
 import { PageHeader } from "@/components/common/PageHeader";
+import { UpdateCard } from "@/components/settings/UpdateCard";
 import { useTranslation } from "@/i18n";
 import type { Theme, ViewMode } from "@/types";
 import { cn } from "@/utils/cn";
@@ -97,6 +98,8 @@ export function SettingsPage() {
           <h2 className="mb-1 text-sm font-semibold">{t("settings.uploadPrefs")}</h2>
           <p className="text-sm text-soft">{t("settings.uploadPrefsDesc")}</p>
         </div>
+
+        <UpdateCard />
       </div>
     </div>
   );

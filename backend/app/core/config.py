@@ -38,6 +38,17 @@ class Settings(BaseSettings):
     # Security headers
     ENABLE_HSTS: bool = False
 
+    # In-app self-update (see app/services/updater.py + scripts/self-update.sh).
+    # Note: UPDATE_GITHUB_REPO is the *source* repo for releases — distinct from
+    # the GITHUB_CLIENT_* OAuth credentials above.
+    UPDATE_GITHUB_REPO: str = "suryaex/storagehub"
+    UPDATE_BRANCH: str = "main"
+    UPDATE_TRIGGER_FILE: str = "/var/lib/storagehub/update.request"
+    UPDATE_STATUS_FILE: str = "/var/lib/storagehub/update.status"
+    # When True the backend may run scripts/self-update.sh itself (needs the repo
+    # + docker socket mounted); otherwise it only drops the trigger file.
+    UPDATE_INPROC: bool = False
+
     # Storage
     STORAGE_ROOT: str = "./storage"
     DEFAULT_USER_QUOTA: int = 10_737_418_240  # 10 GiB
@@ -65,7 +76,7 @@ class Settings(BaseSettings):
     def service_api_keys_list(self) -> list[str]:
         return [k.strip() for k in self.SERVICE_API_KEYS.split(",") if k.strip()]
 
-    @field_validator("ALLOW_LOCAL_LOGIN", "ENABLE_HSTS", mode="before")
+    @field_validator("ALLOW_LOCAL_LOGIN", "ENABLE_HSTS", "UPDATE_INPROC", mode="before")
     @classmethod
     def _parse_bool(cls, v):  # noqa: ANN001
         if isinstance(v, str):
