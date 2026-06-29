@@ -61,6 +61,11 @@ services:
       OIDC_DISCOVERY_URL: ${OIDC_DISCOVERY_URL:-}
     volumes:
       - storage_data:/data/storage
+      # Shared update-state dir: the in-app "Update & restart" button writes a
+      # trigger here, picked up by the host-side watcher (scripts/self-update.sh
+      # --watch, installed by install.sh) which pulls + rebuilds + restarts.
+      # Keeps the docker socket OUT of the backend container.
+      - ${STORAGEHUB_STATE_DIR:-/var/lib/storagehub}:/var/lib/storagehub
     expose:
       - "8000"
     networks:

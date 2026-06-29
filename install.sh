@@ -28,14 +28,17 @@ warn()  { echo -e "${YELLOW}!${NC} $*"; }
 err()   { echo -e "${RED}✗${NC} $*" >&2; }
 
 # ── Args ─────────────────────────────────────────────────────────────────────
-ACTION="up"; PROD=0; TAILSCALE=0; PUBLIC_DETECT=0
+ACTION="up"; PROD=0; TAILSCALE=0; PUBLIC_DETECT=0; UPDATER=1
 for a in "$@"; do case "$a" in
   --down) ACTION="down" ;; --reset) ACTION="reset" ;;
   --rebuild) ACTION="rebuild" ;; --no-build) ACTION="nobuild" ;;
   --prod) PROD=1 ;;
   --tailscale) TAILSCALE=1 ;;
   --public) PUBLIC_DETECT=1 ;;
+  --no-updater) UPDATER=0 ;;
 esac; done
+
+STATE_DIR="${STORAGEHUB_STATE_DIR:-/var/lib/storagehub}"
 
 # Host HTTP port — 8080 so StorageHub does NOT collide with SecureOps (:80).
 HTTP_PORT="${HTTP_PORT:-8080}"
@@ -153,6 +156,39 @@ detect_compose() {
   else err "Could not get Docker Compose. Install it (or use deployment/deploy-prod.sh) and retry."; exit 1; fi
 }
 
+# Install the host-side update watcher so the dashboard's "Update & restart"
+# button actually runs: it writes a trigger into $STATE_DIR (bind-mounted into
+# the backend container), and this systemd service runs self-update.sh --watch
+# on the host (where git + docker live) to pull + rebuild + restart the stack.
+setup_updater_watcher() {
+  [ "$UPDATER" = "1" ] || { info "Skipping update watcher (--no-updater)"; return 0; }
+  local repo_dir unit src; repo_dir="$(pwd)"
+  sudo mkdir -p "$STATE_DIR" 2>/dev/null || mkdir -p "$STATE_DIR" 2>/dev/null || true
+
+  if ! command -v systemctl >/dev/null 2>&1; then
+    warn "systemd not found — in-app 'Update & restart' needs a watcher."
+    warn "Run it yourself on the host:  bash ${repo_dir}/scripts/self-update.sh --watch"
+    return 0
+  fi
+  src="${repo_dir}/scripts/storagehub-updater.service"
+  [ -f "$src" ] || { warn "Updater unit template missing (${src}) — skipping."; return 0; }
+
+  unit="/etc/systemd/system/storagehub-updater.service"
+  info "Installing update watcher service (storagehub-updater)…"
+  if sed "s|__REPO_DIR__|${repo_dir}|g" "$src" | sudo tee "$unit" >/dev/null 2>&1; then
+    sudo systemctl daemon-reload >/dev/null 2>&1 || true
+    if sudo systemctl enable --now storagehub-updater.service >/dev/null 2>&1; then
+      ok "Update watcher active — the dashboard can pull + rebuild + restart."
+    else
+      warn "Could not enable storagehub-updater.service. Start it manually:"
+      warn "  sudo systemctl enable --now storagehub-updater.service"
+    fi
+  else
+    warn "Could not write ${unit} (need sudo). In-app updates will queue but not run."
+    warn "Run on host instead:  bash ${repo_dir}/scripts/self-update.sh --watch"
+  fi
+}
+
 rand() {
   if command -v openssl >/dev/null 2>&1; then openssl rand -hex "${1:-24}";
   else head -c "${1:-24}" /dev/urandom | od -An -tx1 | tr -d ' \n'; fi
@@ -255,6 +291,9 @@ for _ in $(seq 1 60); do
 done
 echo ""
 [ "$HEALTHY" = "1" ] || warn "Backend not healthy yet — check logs: $COMPOSE logs -f backend"
+
+# Enable in-app "Update & restart" (download + reinstall everything from the UI).
+setup_updater_watcher
 
 # ── 4. Done ──────────────────────────────────────────────────────────────────
 echo ""

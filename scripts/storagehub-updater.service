@@ -1,0 +1,32 @@
+# StorageHub in-app update watcher (host-side).
+#
+# Runs scripts/self-update.sh --watch on the HOST, where git + docker (or the
+# native venv/npm toolchain) live, so the dashboard's "Update & restart" button
+# can pull + rebuild + restart the whole stack without mounting the docker
+# socket into the backend container.
+#
+# install.sh (docker) and deployment/deploy-prod.sh (baremetal) install a
+# path-resolved copy of this unit to /etc/systemd/system/storagehub-updater.service
+# and enable it. To install it manually, replace __REPO_DIR__ with the absolute
+# path to this repo, then:
+#   sudo cp scripts/storagehub-updater.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now storagehub-updater.service
+[Unit]
+Description=StorageHub in-app update watcher
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=__REPO_DIR__
+ExecStart=/usr/bin/env bash __REPO_DIR__/scripts/self-update.sh --watch
+Restart=always
+RestartSec=10
+Environment=UPDATE_GITHUB_REPO=suryaex/storagehub
+Environment=UPDATE_BRANCH=main
+Environment=UPDATE_TRIGGER_FILE=/var/lib/storagehub/update.request
+Environment=UPDATE_STATUS_FILE=/var/lib/storagehub/update.status
+
+[Install]
+WantedBy=multi-user.target

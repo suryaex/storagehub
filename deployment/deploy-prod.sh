@@ -281,6 +281,37 @@ sudo systemctl daemon-reload
 sudo systemctl enable storagehub-backend
 sudo systemctl restart storagehub-backend
 
+# -------- 9b) In-app update watcher (baremetal) --------
+# Lets the dashboard's "Update & restart" button pull + reinstall natively:
+# the backend writes a trigger into /var/lib/storagehub, and this watcher runs
+# scripts/self-update.sh --watch (native rebuild: venv + npm build + restart).
+if [[ "${STORAGEHUB_NO_UPDATER:-0}" != "1" ]]; then
+  say "Installing in-app update watcher (storagehub-updater)…"
+  UPDATER_TMPL="$REPO_DIR/scripts/storagehub-updater.service"
+  # The backend (runs as $SERVICE_USER) writes the trigger here; chown so it can.
+  sudo mkdir -p /var/lib/storagehub 2>/dev/null || true
+  sudo chown "$SERVICE_USER":"$SERVICE_USER" /var/lib/storagehub 2>/dev/null || true
+  if [[ -f "$UPDATER_TMPL" ]]; then
+    sed "s|__REPO_DIR__|$REPO_DIR|g" "$UPDATER_TMPL" \
+      | sudo tee /etc/systemd/system/storagehub-updater.service >/dev/null
+    # Pin native mode so the watcher rebuilds via venv/npm (not docker compose).
+    sudo mkdir -p /etc/systemd/system/storagehub-updater.service.d
+    printf '[Service]\nEnvironment=STORAGEHUB_DEPLOY_MODE=baremetal\n' \
+      | sudo tee /etc/systemd/system/storagehub-updater.service.d/mode.conf >/dev/null
+    sudo systemctl daemon-reload
+    if sudo systemctl enable --now storagehub-updater.service 2>/dev/null; then
+      say "Update watcher active — dashboard 'Update & restart' will pull + rebuild + restart."
+    else
+      warn "Could not enable storagehub-updater.service — start it manually:"
+      warn "  sudo systemctl enable --now storagehub-updater.service"
+    fi
+  else
+    warn "Updater unit template missing ($UPDATER_TMPL) — skipping watcher."
+  fi
+else
+  say "Skipping update watcher (STORAGEHUB_NO_UPDATER=1)."
+fi
+
 # -------- 10) Status --------
 sleep 3
 say "Status:"

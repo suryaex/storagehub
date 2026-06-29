@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
 #
 # StorageHub self-update — the single, auditable script the in-app updater runs.
-# Pulls the latest released tag (or branch), rebuilds images, restarts the stack.
+# Pulls the latest released tag (or branch) and reinstalls the stack, for BOTH
+# deployment styles:
+#   • docker     — docker compose build + up (the install.sh stack)
+#   • baremetal  — refresh venv + rebuild frontend + restart systemd/nginx
+#                  (the native deployment/deploy-prod.sh install)
+# The mode is auto-detected (baremetal when the storagehub-backend systemd unit
+# exists, else docker) or forced via STORAGEHUB_DEPLOY_MODE.
 # POST /api/v1/update/apply only triggers *this* file; nothing else is executed.
 #
 #   scripts/self-update.sh --check     # print current vs latest, exit
@@ -9,10 +15,12 @@
 #   scripts/self-update.sh --watch     # poll the trigger file, then --apply
 #
 # Env:
-#   UPDATE_GITHUB_REPO    default suryaex/storagehub
-#   UPDATE_BRANCH         default main
-#   UPDATE_TRIGGER_FILE   default /var/lib/storagehub/update.request
-#   UPDATE_STATUS_FILE    default /var/lib/storagehub/update.status
+#   UPDATE_GITHUB_REPO      default suryaex/storagehub
+#   UPDATE_BRANCH           default main
+#   UPDATE_TRIGGER_FILE     default /var/lib/storagehub/update.request
+#   UPDATE_STATUS_FILE      default /var/lib/storagehub/update.status
+#   STORAGEHUB_DEPLOY_MODE  auto | docker | baremetal   (default auto)
+#   STORAGEHUB_FRONTEND_ROOT default /var/www/storagehub (baremetal SPA root)
 #
 set -euo pipefail
 
@@ -21,6 +29,14 @@ GITHUB_REPO="${UPDATE_GITHUB_REPO:-suryaex/storagehub}"
 UPDATE_BRANCH="${UPDATE_BRANCH:-main}"
 TRIGGER="${UPDATE_TRIGGER_FILE:-/var/lib/storagehub/update.request}"
 STATUS_FILE="${UPDATE_STATUS_FILE:-/var/lib/storagehub/update.status}"
+
+# Deployment mode + native SPA root.
+DEPLOY_MODE="${STORAGEHUB_DEPLOY_MODE:-auto}"
+FRONTEND_ROOT="${STORAGEHUB_FRONTEND_ROOT:-/var/www/storagehub}"
+
+# Run privileged steps directly when already root (the watcher runs as root);
+# otherwise fall back to sudo for interactive/manual runs.
+SUDO=""; [ "$(id -u)" -ne 0 ] && command -v sudo >/dev/null 2>&1 && SUDO="sudo"
 
 log()    { printf '[self-update] %s\n' "$*" >&2; }
 status() {
@@ -35,11 +51,16 @@ compose() {
   else log "Docker Compose not found"; return 127; fi
 }
 
-compose_file() {
-  for f in docker-compose.prod.yml docker-compose.yml; do
-    [ -f "$REPO_DIR/$f" ] && { echo "$f"; return 0; }
-  done
-  return 1
+# Build the full `-f base [-f prod]` chain. The prod overlay only *adds* to the
+# base file (restart policy, log rotation) — it must never be used alone. Always
+# include the base; layer prod on top when present (opt out STORAGEHUB_UPDATE_PROD=0).
+compose_files() {
+  [ -f "$REPO_DIR/docker-compose.yml" ] || return 1
+  local args="-f docker-compose.yml"
+  if [ -f "$REPO_DIR/docker-compose.prod.yml" ] && [ "${STORAGEHUB_UPDATE_PROD:-1}" = "1" ]; then
+    args="$args -f docker-compose.prod.yml"
+  fi
+  echo "$args"
 }
 
 latest_tag() {
@@ -55,32 +76,102 @@ do_check() {
   printf 'current=%s latest=%s\n' "$current" "${latest:-<unreachable>}"
 }
 
-do_apply() {
-  cd "$REPO_DIR"
-  status "updating" "Fetching latest source"
-  git fetch --tags --prune origin
+detect_mode() {
+  case "$DEPLOY_MODE" in
+    docker)            echo docker;    return 0 ;;
+    baremetal|native)  echo baremetal; return 0 ;;
+  esac
+  if [ -f /etc/systemd/system/storagehub-backend.service ]; then echo baremetal; return 0; fi
+  if [ -f "$REPO_DIR/docker-compose.yml" ]; then echo docker; return 0; fi
+  echo unknown
+}
 
-  local tag cf
+# Pull latest source. Echoes the resolved tag/branch on stdout (logs → stderr).
+fetch_source() {
+  cd "$REPO_DIR"
+  git config --global --add safe.directory "$REPO_DIR" 2>/dev/null || true
+  status "updating" "Fetching latest source"
+  if ! git fetch --tags --prune origin >&2; then
+    status "error" "git fetch failed — check network / credentials"; return 1
+  fi
+  local tag
   tag="$(latest_tag 2>/dev/null || true)"
   if [ -n "${tag:-}" ] && git rev-parse "refs/tags/${tag}" >/dev/null 2>&1; then
     log "Checking out release ${tag}"
-    git checkout -q "tags/${tag}"
+    git checkout -q "tags/${tag}" >&2
+    echo "$tag"
   else
     log "No release tag reachable; fast-forwarding ${UPDATE_BRANCH}"
-    git checkout -q "${UPDATE_BRANCH}"
-    git merge --ff-only "origin/${UPDATE_BRANCH}"
+    git checkout -q "${UPDATE_BRANCH}" >&2
+    git merge --ff-only "origin/${UPDATE_BRANCH}" >&2
+    echo "$UPDATE_BRANCH"
   fi
+}
 
-  cf="$(compose_file)" || { status "error" "No compose file found"; exit 1; }
-  log "Rebuilding images via ${cf}…"
+apply_docker() {
+  local cfs
+  cfs="$(compose_files)" || { status "error" "No compose file found"; return 1; }
+  log "Rebuilding images via ${cfs}…"
   status "rebuilding" "Building updated images"
-  compose -f "$cf" build
-
+  # shellcheck disable=SC2086 — $cfs is a deliberate, controlled flag list.
+  compose $cfs build
   log "Restarting stack…"
   status "restarting" "Recreating containers"
-  compose -f "$cf" up -d
+  # shellcheck disable=SC2086
+  compose $cfs up -d
+}
 
-  status "done" "Updated to ${tag:-${UPDATE_BRANCH}} and restarted"
+# Native (bare-metal) reinstall: refresh backend venv, rebuild the frontend SPA,
+# republish it, then restart the systemd backend + nginx. Mirrors the relevant
+# steps of deployment/deploy-prod.sh.
+apply_baremetal() {
+  local backend_dir="$REPO_DIR/backend"
+  local frontend_dir="$REPO_DIR/frontend"
+
+  if ! command -v python3 >/dev/null 2>&1; then status "error" "python3 not found"; return 1; fi
+  if ! command -v npm     >/dev/null 2>&1; then status "error" "npm not found (Node.js required)"; return 1; fi
+
+  status "rebuilding" "Updating backend dependencies"
+  log "Refreshing backend venv…"
+  if [ ! -x "$backend_dir/venv/bin/pip" ]; then
+    log "No venv found — creating $backend_dir/venv"
+    python3 -m venv "$backend_dir/venv"
+  fi
+  "$backend_dir/venv/bin/pip" install --quiet --upgrade pip >/dev/null 2>&1 || true
+  "$backend_dir/venv/bin/pip" install --quiet -r "$backend_dir/requirements.txt"
+
+  status "rebuilding" "Rebuilding frontend"
+  log "Building frontend SPA…"
+  (
+    cd "$frontend_dir"
+    if [ -f package-lock.json ]; then npm ci --no-audit --no-fund; else npm install --no-audit --no-fund; fi
+    case "$(uname -m)" in arm*|aarch64) export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=512}";; esac
+    npm run build
+  )
+  log "Publishing dist → ${FRONTEND_ROOT}"
+  $SUDO mkdir -p "$FRONTEND_ROOT"
+  $SUDO rsync -a --delete "$frontend_dir/dist/" "$FRONTEND_ROOT/"
+  $SUDO chown -R www-data:www-data "$FRONTEND_ROOT" 2>/dev/null \
+    || $SUDO chown -R nginx:nginx "$FRONTEND_ROOT" 2>/dev/null || true
+
+  status "restarting" "Restarting services"
+  log "Restarting storagehub-backend + nginx…"
+  $SUDO systemctl restart storagehub-backend
+  $SUDO systemctl reload nginx 2>/dev/null || $SUDO systemctl restart nginx 2>/dev/null || true
+}
+
+do_apply() {
+  local tag mode
+  tag="$(fetch_source)" || return 1
+  mode="$(detect_mode)"
+  log "Deployment mode: ${mode}"
+  case "$mode" in
+    docker)    apply_docker    || { status "error" "Docker rebuild failed — see logs"; return 1; } ;;
+    baremetal) apply_baremetal || { status "error" "Native rebuild failed — see logs"; return 1; } ;;
+    *) status "error" "Could not determine deployment mode (set STORAGEHUB_DEPLOY_MODE=docker|baremetal)"; return 1 ;;
+  esac
+
+  status "done" "Updated to ${tag} and restarted"
   log "Update complete."
   rm -f "$TRIGGER" 2>/dev/null || true
 }
@@ -90,7 +181,11 @@ do_watch() {
   while true; do
     if [ -f "$TRIGGER" ]; then
       log "Trigger detected."
-      do_apply || status "error" "Update failed — see logs"
+      if ! do_apply; then
+        status "error" "Update failed — see logs"
+        # Consume the trigger so a persistent failure doesn't loop every cycle.
+        mv -f "$TRIGGER" "${TRIGGER}.failed" 2>/dev/null || rm -f "$TRIGGER" 2>/dev/null || true
+      fi
     fi
     sleep 15
   done
