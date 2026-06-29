@@ -12,7 +12,7 @@ class Settings(BaseSettings):
 
     # App
     APP_NAME: str = "StorageHub"
-    APP_VERSION: str = "1.0"
+    APP_VERSION: str = "1.0.1"
     ENVIRONMENT: str = "development"
     SECRET_KEY: str = "change-me"
     CORS_ORIGINS: str = "http://localhost,http://localhost:5173,http://localhost:3000"
