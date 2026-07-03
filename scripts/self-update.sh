@@ -39,10 +39,34 @@ FRONTEND_ROOT="${STORAGEHUB_FRONTEND_ROOT:-/var/www/storagehub}"
 SUDO=""; [ "$(id -u)" -ne 0 ] && command -v sudo >/dev/null 2>&1 && SUDO="sudo"
 
 log()    { printf '[self-update] %s\n' "$*" >&2; }
+
+# Make sure the state dir (trigger + status files) exists and is writable by
+# the invoking user. Manual runs happen as a regular user while the dir lives
+# under /var/lib, so escalate once here instead of failing on every write.
+ensure_state_dir() {
+  local dir; dir="$(dirname "$STATUS_FILE")"
+  [ -d "$dir" ] || mkdir -p "$dir" 2>/dev/null || $SUDO mkdir -p "$dir" || return 1
+  if [ ! -w "$dir" ]; then
+    $SUDO chgrp "$(id -gn)" "$dir" 2>/dev/null || true
+    $SUDO chmod g+rwx "$dir" 2>/dev/null || true
+    [ -w "$dir" ] || $SUDO chown "$(id -un)" "$dir" 2>/dev/null || true
+  fi
+  # Pre-existing root-owned status file blocks the redirect even when the dir
+  # itself is writable — hand it to the invoking user.
+  if [ -e "$STATUS_FILE" ] && [ ! -w "$STATUS_FILE" ]; then
+    $SUDO chown "$(id -un)" "$STATUS_FILE" 2>/dev/null || true
+  fi
+  [ -w "$dir" ]
+}
+
 status() {
-  mkdir -p "$(dirname "$STATUS_FILE")" 2>/dev/null || true
-  printf '{"state":"%s","message":"%s","at":%s}\n' "$1" "${2:-}" "$(date +%s)" \
-    > "$STATUS_FILE" 2>/dev/null || true
+  local line
+  line="$(printf '{"state":"%s","message":"%s","at":%s}' "$1" "${2:-}" "$(date +%s)")"
+  if ensure_state_dir 2>/dev/null && { [ ! -e "$STATUS_FILE" ] || [ -w "$STATUS_FILE" ]; }; then
+    printf '%s\n' "$line" > "$STATUS_FILE"
+  elif [ -n "$SUDO" ]; then
+    printf '%s\n' "$line" | $SUDO tee "$STATUS_FILE" >/dev/null 2>&1 || true
+  fi
 }
 
 compose() {
@@ -91,7 +115,9 @@ fetch_source() {
   cd "$REPO_DIR"
   git config --global --add safe.directory "$REPO_DIR" 2>/dev/null || true
   status "updating" "Fetching latest source"
-  if ! git fetch --tags --prune origin >&2; then
+  # --force: release tags may be re-pointed upstream (history hygiene); a plain
+  # fetch rejects those with "would clobber existing tag" and aborts the update.
+  if ! git fetch --tags --force --prune origin >&2; then
     status "error" "git fetch failed — check network / credentials"; return 1
   fi
   local tag
@@ -113,12 +139,15 @@ apply_docker() {
   cfs="$(compose_files)" || { status "error" "No compose file found"; return 1; }
   log "Rebuilding images via ${cfs}…"
   status "rebuilding" "Building updated images"
+  # Explicit failure checks: callers invoke this function behind `||`, which
+  # suspends errexit inside it — without these, a failed build would fall
+  # through and the stale stack would be restarted as if the update succeeded.
   # shellcheck disable=SC2086 — $cfs is a deliberate, controlled flag list.
-  compose $cfs build
+  compose $cfs build || { status "error" "Image build failed"; return 1; }
   log "Restarting stack…"
   status "restarting" "Recreating containers"
   # shellcheck disable=SC2086
-  compose $cfs up -d
+  compose $cfs up -d || { status "error" "Container restart failed"; return 1; }
 }
 
 # Native (bare-metal) reinstall: refresh backend venv, rebuild the frontend SPA,
@@ -138,16 +167,23 @@ apply_baremetal() {
     python3 -m venv "$backend_dir/venv"
   fi
   "$backend_dir/venv/bin/pip" install --quiet --upgrade pip >/dev/null 2>&1 || true
-  "$backend_dir/venv/bin/pip" install --quiet -r "$backend_dir/requirements.txt"
+  "$backend_dir/venv/bin/pip" install --quiet -r "$backend_dir/requirements.txt" \
+    || { status "error" "Backend dependency install failed"; return 1; }
 
   status "rebuilding" "Rebuilding frontend"
   log "Building frontend SPA…"
+  # Callers run this function behind `||`, which suspends errexit inside it —
+  # each step needs an explicit check or a failed build would still publish
+  # the stale dist and report the update as complete.
   (
+    set -e
     cd "$frontend_dir"
     if [ -f package-lock.json ]; then npm ci --no-audit --no-fund; else npm install --no-audit --no-fund; fi
     case "$(uname -m)" in arm*|aarch64) export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=512}";; esac
     npm run build
-  )
+  ) || { status "error" "Frontend build failed — see logs"; return 1; }
+  [ -f "$frontend_dir/dist/index.html" ] \
+    || { status "error" "Frontend build produced no dist/"; return 1; }
   log "Publishing dist → ${FRONTEND_ROOT}"
   $SUDO mkdir -p "$FRONTEND_ROOT"
   $SUDO rsync -a --delete "$frontend_dir/dist/" "$FRONTEND_ROOT/"
@@ -156,7 +192,8 @@ apply_baremetal() {
 
   status "restarting" "Restarting services"
   log "Restarting storagehub-backend + nginx…"
-  $SUDO systemctl restart storagehub-backend
+  $SUDO systemctl restart storagehub-backend \
+    || { status "error" "storagehub-backend failed to restart"; return 1; }
   $SUDO systemctl reload nginx 2>/dev/null || $SUDO systemctl restart nginx 2>/dev/null || true
 }
 
