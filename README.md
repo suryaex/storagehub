@@ -6,7 +6,8 @@
 
 *OAuth2/OIDC login · chunked uploads · Finder-style explorer · public sharing · multi-node storage*
 
-![Version](https://img.shields.io/badge/version-1.0.4-brightgreen)
+![Version](https://img.shields.io/badge/version-1.0.5-brightgreen)
+![Channel](https://img.shields.io/badge/channel-alpha-orange)
 ![License](https://img.shields.io/badge/license-Polsri%20Internal-blue)
 ![Stack](https://img.shields.io/badge/stack-FastAPI%20%2B%20React-0A7AFF)
 ![Python](https://img.shields.io/badge/python-3.11+-blue)
@@ -29,7 +30,12 @@ Runs **alongside [SecureOps](https://github.com/suryaex/secureops) on the same h
 
 **Prerequisites:** Git + Docker & Docker Compose. On **Linux** the installer auto-installs Docker if missing; on **Windows/macOS** install Docker Desktop first. Port **8080** must be free (or override with `HTTP_PORT`).
 
-**Linux / macOS**
+**One command (Linux)**
+```bash
+curl -fsSL https://raw.githubusercontent.com/suryaex/storagehub/main/bootstrap.sh | bash
+```
+
+**Linux / macOS (manual)**
 ```bash
 git clone https://github.com/suryaex/storagehub.git
 cd storagehub

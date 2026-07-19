@@ -12,7 +12,7 @@ router = APIRouter()
 
 @router.get("/health")
 def health():
-    return success({"status": "ok", "service": settings.APP_NAME, "version": settings.APP_VERSION},
+    return success({"status": "ok", "service": settings.APP_NAME, "version": settings.APP_VERSION, "channel": settings.APP_CHANNEL},
                    "Healthy")
 
 
