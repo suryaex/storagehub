@@ -28,7 +28,7 @@ warn()  { echo -e "${YELLOW}!${NC} $*"; }
 err()   { echo -e "${RED}✗${NC} $*" >&2; }
 
 # ── Args ─────────────────────────────────────────────────────────────────────
-ACTION="up"; PROD=0; TAILSCALE=0; PUBLIC_DETECT=0; UPDATER=1
+ACTION="up"; PROD=0; TAILSCALE=0; PUBLIC_DETECT=0; UPDATER=1; YES=0
 for a in "$@"; do case "$a" in
   --down) ACTION="down" ;; --reset) ACTION="reset" ;;
   --rebuild) ACTION="rebuild" ;; --no-build) ACTION="nobuild" ;;
@@ -36,6 +36,7 @@ for a in "$@"; do case "$a" in
   --tailscale) TAILSCALE=1 ;;
   --public) PUBLIC_DETECT=1 ;;
   --no-updater) UPDATER=0 ;;
+  --yes|-y) YES=1 ;;
 esac; done
 
 STATE_DIR="${STORAGEHUB_STATE_DIR:-/var/lib/storagehub}"
@@ -226,7 +227,8 @@ CF="-f docker-compose.yml"
 # ── Subcommands ──────────────────────────────────────────────────────────────
 if [ "$ACTION" = "down" ];  then ensure_docker; detect_compose; info "Stopping…"; $COMPOSE $CF down; ok "Stopped."; exit 0; fi
 if [ "$ACTION" = "reset" ]; then ensure_docker; detect_compose; warn "This deletes ALL data (DB + uploaded files)!";
-  read -r -p "Type 'yes' to continue: " c; [ "$c" = "yes" ] && $COMPOSE $CF down -v && ok "Reset done." || echo "Aborted."; exit 0; fi
+  if [ "$YES" != "1" ]; then read -r -p "Type 'yes' to continue: " c; [ "$c" != "yes" ] && { echo "Aborted."; exit 0; }; fi
+  $COMPOSE $CF down -v && ok "Reset done."; exit 0; fi
 
 echo ""
 echo "  ╭───────────────────────────────────────────╮"

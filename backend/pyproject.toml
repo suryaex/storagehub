@@ -1,6 +1,6 @@
 [project]
 name = "storagehub-backend"
-version = "1.0.0"
+version = "1.0.4"
 description = "StorageHub — self-hosted file storage platform (FastAPI backend)"
 requires-python = ">=3.11"
 
