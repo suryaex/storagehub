@@ -30,6 +30,12 @@ class StorageNodeCreate(BaseModel):
     raid_level: str = "none"
 
 
+class StorageNodeCreateSimple(BaseModel):
+    """Simplified node creation - auto-detects most fields for local nodes."""
+    name: str = Field(min_length=1, max_length=100)
+    location: str | None = None  # auto-detect if not provided for local
+
+
 class StorageNodeUpdate(BaseModel):
     name: str | None = None
     location: str | None = None

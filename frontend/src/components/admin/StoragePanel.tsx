@@ -10,11 +10,15 @@ import {
   Cpu,
   Database,
   Layers,
+  Zap,
+  Wand2,
 } from "lucide-react";
 import {
   adminService,
   type CloudInput,
+  type CloudPreset,
   type NodeInput,
+  type NodeInputSimple,
   type StorageNode,
 } from "@/services/adminService";
 import { Modal } from "@/components/common/Modal";
@@ -34,6 +38,10 @@ const NODE_DEFAULT: NodeInput = {
   storage_type: "auto",
   raid_level: "none",
 };
+const NODE_SIMPLE_DEFAULT: NodeInputSimple = {
+  name: "",
+  location: undefined,
+};
 const CLOUD_DEFAULT: CloudInput = {
   name: "",
   provider: "s3",
@@ -52,7 +60,9 @@ export function StoragePanel() {
   const [sub, setSub] = useState<Sub>("overview");
   const [nodeOpen, setNodeOpen] = useState(false);
   const [cloudOpen, setCloudOpen] = useState(false);
+  const [nodeSimple, setNodeSimple] = useState(false);
   const [nodeForm, setNodeForm] = useState<NodeInput>(NODE_DEFAULT);
+  const [nodeFormSimple, setNodeFormSimple] = useState<NodeInputSimple>(NODE_SIMPLE_DEFAULT);
   const [cloudForm, setCloudForm] = useState<CloudInput>(CLOUD_DEFAULT);
   const [raidNode, setRaidNode] = useState<StorageNode | null>(null);
   const [raidLevel, setRaidLevel] = useState("raid1");
@@ -62,6 +72,7 @@ export function StoragePanel() {
   const overview = useQuery({ queryKey: ["admin-storage"], queryFn: adminService.storageOverview });
   const nodes = useQuery({ queryKey: ["admin-nodes"], queryFn: adminService.listNodes });
   const clouds = useQuery({ queryKey: ["admin-clouds"], queryFn: adminService.listClouds });
+  const cloudPresets = useQuery({ queryKey: ["cloud-presets"], queryFn: adminService.cloudPresets });
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ["admin-storage"] });
@@ -80,18 +91,35 @@ export function StoragePanel() {
   };
 
   const submitNode = async () => {
-    if (!nodeForm.name.trim() || !nodeForm.location.trim()) {
-      toast(t("storagePanel.nameLocationRequired"), "error");
-      return;
-    }
-    try {
-      await adminService.createNode(nodeForm);
-      toast(t("storagePanel.nodeAdded"), "success");
-      setNodeOpen(false);
-      setNodeForm(NODE_DEFAULT);
-      refresh();
-    } catch (e) {
-      toast(apiErrorMessage(e), "error");
+    if (nodeSimple) {
+      if (!nodeFormSimple.name.trim()) {
+        toast(t("storagePanel.nameRequired"), "error");
+        return;
+      }
+      try {
+        await adminService.createNodeSimple(nodeFormSimple);
+        toast(t("storagePanel.nodeAdded"), "success");
+        setNodeOpen(false);
+        setNodeFormSimple(NODE_SIMPLE_DEFAULT);
+        setNodeSimple(false);
+        refresh();
+      } catch (e) {
+        toast(apiErrorMessage(e), "error");
+      }
+    } else {
+      if (!nodeForm.name.trim() || !nodeForm.location.trim()) {
+        toast(t("storagePanel.nameLocationRequired"), "error");
+        return;
+      }
+      try {
+        await adminService.createNode(nodeForm);
+        toast(t("storagePanel.nodeAdded"), "success");
+        setNodeOpen(false);
+        setNodeForm(NODE_DEFAULT);
+        refresh();
+      } catch (e) {
+        toast(apiErrorMessage(e), "error");
+      }
     }
   };
 
@@ -132,6 +160,15 @@ export function StoragePanel() {
     } catch (e) {
       toast(apiErrorMessage(e), "error");
     }
+  };
+
+  const applyPreset = (preset: CloudPreset, baseName: string) => {
+    setCloudForm({
+      ...CLOUD_DEFAULT,
+      name: baseName || "",
+      provider: preset.provider,
+      endpoint: preset.endpoint,
+    });
   };
 
   const subTabs: { key: Sub; label: string; icon: typeof HardDrive }[] = [
@@ -334,53 +371,86 @@ export function StoragePanel() {
       {/* ── Add node modal ── */}
       <Modal
         open={nodeOpen}
-        onClose={() => setNodeOpen(false)}
+        onClose={() => { setNodeOpen(false); setNodeSimple(false); }}
         title={t("storagePanel.addStorageNode")}
         footer={
           <>
-            <button onClick={() => setNodeOpen(false)} className="btn-ghost">{t("storagePanel.cancel")}</button>
+            <button onClick={() => { setNodeOpen(false); setNodeSimple(false); }} className="btn-ghost">{t("storagePanel.cancel")}</button>
             <button onClick={submitNode} className="btn-primary">{t("storagePanel.addNode")}</button>
           </>
         }
       >
         <div className="space-y-3">
-          <Field label={t("storagePanel.name")}>
-            <input className="input" value={nodeForm.name}
-              onChange={(e) => setNodeForm({ ...nodeForm, name: e.target.value })} />
-          </Field>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label={t("storagePanel.type")}>
-              <select className="input" value={nodeForm.node_type}
-                onChange={(e) => setNodeForm({ ...nodeForm, node_type: e.target.value })}>
-                <option value="local">local</option>
-                <option value="remote">remote</option>
-                <option value="s3">s3</option>
-                <option value="webdav">webdav</option>
-              </select>
-            </Field>
-            <Field label={t("storagePanel.storageType")}>
-              <select className="input" value={nodeForm.storage_type}
-                onChange={(e) => setNodeForm({ ...nodeForm, storage_type: e.target.value })}>
-                <option value="auto">{t("storagePanel.autoDetect")}</option>
-                <option value="ssd">SSD</option>
-                <option value="hdd">HDD</option>
-                <option value="nvme">NVMe</option>
-                <option value="raid">RAID</option>
-              </select>
-            </Field>
+          {/* Simple mode toggle */}
+          <div className="flex items-center justify-between rounded-md bg-black/5 p-3 dark:bg-white/5">
+            <div className="flex items-center gap-2">
+              <Zap className="h-4 w-4 text-accent" />
+              <span className="text-sm font-medium">{t("storagePanel.quickAdd")}</span>
+            </div>
+            <button
+              onClick={() => setNodeSimple(!nodeSimple)}
+              className={cn(
+                "relative h-6 w-11 rounded-full transition-colors",
+                nodeSimple ? "bg-accent" : "bg-black/20 dark:bg-white/20",
+              )}
+            >
+              <span
+                className={cn(
+                  "absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white transition-transform",
+                  nodeSimple && "translate-x-5",
+                )}
+              />
+            </button>
           </div>
-          <Field label={t("storagePanel.location")}>
-            <input className="input" value={nodeForm.location} placeholder="/mnt/data or https://…"
-              onChange={(e) => setNodeForm({ ...nodeForm, location: e.target.value })} />
-          </Field>
-          <Field label={t("storagePanel.raidLevel")}>
-            <select className="input" value={nodeForm.raid_level}
-              onChange={(e) => setNodeForm({ ...nodeForm, raid_level: e.target.value })}>
-              {["none", "raid0", "raid1", "raid5", "raid6", "raid10"].map((r) => (
-                <option key={r} value={r}>{r}</option>
-              ))}
-            </select>
-          </Field>
+
+          {nodeSimple ? (
+            // Simple mode - just name
+            <Field label={t("storagePanel.name")}>
+              <input className="input" value={nodeFormSimple.name} placeholder="My Storage"
+                onChange={(e) => setNodeFormSimple({ ...nodeFormSimple, name: e.target.value })} />
+            </Field>
+          ) : (
+            // Full mode
+            <>
+              <Field label={t("storagePanel.name")}>
+                <input className="input" value={nodeForm.name}
+                  onChange={(e) => setNodeForm({ ...nodeForm, name: e.target.value })} />
+              </Field>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label={t("storagePanel.type")}>
+                  <select className="input" value={nodeForm.node_type}
+                    onChange={(e) => setNodeForm({ ...nodeForm, node_type: e.target.value })}>
+                    <option value="local">local</option>
+                    <option value="remote">remote</option>
+                    <option value="s3">s3</option>
+                    <option value="webdav">webdav</option>
+                  </select>
+                </Field>
+                <Field label={t("storagePanel.storageType")}>
+                  <select className="input" value={nodeForm.storage_type}
+                    onChange={(e) => setNodeForm({ ...nodeForm, storage_type: e.target.value })}>
+                    <option value="auto">{t("storagePanel.autoDetect")}</option>
+                    <option value="ssd">SSD</option>
+                    <option value="hdd">HDD</option>
+                    <option value="nvme">NVMe</option>
+                    <option value="raid">RAID</option>
+                  </select>
+                </Field>
+              </div>
+              <Field label={t("storagePanel.location")}>
+                <input className="input" value={nodeForm.location} placeholder="/mnt/data or https://…"
+                  onChange={(e) => setNodeForm({ ...nodeForm, location: e.target.value })} />
+              </Field>
+              <Field label={t("storagePanel.raidLevel")}>
+                <select className="input" value={nodeForm.raid_level}
+                  onChange={(e) => setNodeForm({ ...nodeForm, raid_level: e.target.value })}>
+                  {["none", "raid0", "raid1", "raid5", "raid6", "raid10"].map((r) => (
+                    <option key={r} value={r}>{r}</option>
+                  ))}
+                </select>
+              </Field>
+            </>
+          )}
         </div>
       </Modal>
 
@@ -397,6 +467,23 @@ export function StoragePanel() {
         }
       >
         <div className="space-y-3">
+          {/* Quick presets */}
+          <div>
+            <label className="mb-2 block text-xs font-medium text-soft">{t("storagePanel.quickPresets")}</label>
+            <div className="flex flex-wrap gap-2">
+              {cloudPresets.data && Object.entries(cloudPresets.data).map(([key, preset]) => (
+                <button
+                  key={key}
+                  onClick={() => applyPreset(preset, "")}
+                  className="btn-ghost !min-h-0 gap-1 px-2 py-1 text-xs"
+                >
+                  <Wand2 className="h-3 w-3" />
+                  {preset.name_hint}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <Field label={t("storagePanel.name")}>
               <input className="input" value={cloudForm.name}

@@ -73,6 +73,17 @@ export interface NodeInput {
   raid_level: string;
 }
 
+export interface NodeInputSimple {
+  name: string;
+  location?: string;
+}
+
+export interface CloudPreset {
+  provider: string;
+  endpoint: string;
+  name_hint: string;
+}
+
 export interface CloudInput {
   name: string;
   provider: string;
@@ -113,6 +124,7 @@ export const adminService = {
 
   listNodes: () => unwrap<StorageNode[]>(api.get("/admin/nodes")),
   createNode: (p: NodeInput) => unwrap<StorageNode>(api.post("/admin/nodes", p)),
+  createNodeSimple: (p: NodeInputSimple) => unwrap<StorageNode>(api.post("/admin/nodes/simple", p)),
   updateNode: (id: number, p: Partial<NodeInput & { status: string }>) =>
     unwrap<StorageNode>(api.patch(`/admin/nodes/${id}`, p)),
   setPrimaryNode: (id: number) => api.post(`/admin/nodes/${id}/primary`),
@@ -125,6 +137,8 @@ export const adminService = {
       mdadm_command: string;
       instructions: string;
     }>(api.post(`/admin/nodes/${id}/raid`, p)),
+
+  cloudPresets: () => unwrap<Record<string, CloudPreset>>(api.get("/admin/cloud-presets")),
 
   listClouds: () => unwrap<CloudTarget[]>(api.get("/admin/cloud-targets")),
   createCloud: (p: CloudInput) => unwrap<CloudTarget>(api.post("/admin/cloud-targets", p)),

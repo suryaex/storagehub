@@ -11,10 +11,40 @@ from app.schemas.storage import (
     CloudTargetUpdate,
     RaidConfigRequest,
     StorageNodeCreate,
+    StorageNodeCreateSimple,
     StorageNodeUpdate,
 )
 from app.services.storage_admin_service import StorageAdminService
 from app.utils.response import success
+
+# Preset cloud provider configurations
+CLOUD_PRESETS = {
+    "aws-s3": {
+        "provider": "s3",
+        "endpoint": "https://s3.amazonaws.com",
+        "name_hint": "AWS S3",
+    },
+    "backblaze": {
+        "provider": "s3",
+        "endpoint": "https://s3.{region}.backblazeb2.com",
+        "name_hint": "Backblaze B2",
+    },
+    "minio": {
+        "provider": "s3",
+        "endpoint": "",
+        "name_hint": "MinIO",
+    },
+    "wasabi": {
+        "provider": "s3",
+        "endpoint": "https://s3.wasabisys.com",
+        "name_hint": "Wasabi",
+    },
+    "webdav": {
+        "provider": "webdav",
+        "endpoint": "",
+        "name_hint": "WebDAV",
+    },
+}
 
 router = APIRouter()
 
@@ -35,6 +65,19 @@ def list_nodes(db: Session = Depends(get_db), _: User = Depends(get_admin_user))
 def create_node(payload: StorageNodeCreate, db: Session = Depends(get_db),
                 _: User = Depends(get_admin_user)):
     return success(StorageAdminService(db).create_node(payload), "Node added")
+
+
+@router.post("/nodes/simple")
+def create_node_simple(payload: StorageNodeCreateSimple, db: Session = Depends(get_db),
+                       _: User = Depends(get_admin_user)):
+    """Simple node creation - auto-detects location for local nodes."""
+    return success(StorageAdminService(db).create_node_simple(payload), "Node added")
+
+
+@router.get("/cloud-presets")
+def cloud_presets():
+    """Return available cloud provider presets."""
+    return success(CLOUD_PRESETS)
 
 
 @router.patch("/nodes/{node_id}")

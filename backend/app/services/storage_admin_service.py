@@ -97,6 +97,28 @@ class StorageAdminService:
         self.db.commit()
         return self._node(node)
 
+    def create_node_simple(self, data) -> dict:  # noqa: ANN001
+        """Simple node creation - auto-detects location for local nodes."""
+        if self.nodes.get_by_name(data.name):
+            raise Conflict("A node with this name already exists")
+
+        # Auto-detect location for local nodes
+        location = data.location
+        if not location:
+            if not self.nodes.list():
+                # First node = primary local storage
+                location = settings.STORAGE_ROOT
+            else:
+                raise ValidationError("Location required for additional nodes")
+
+        node = self.nodes.create(
+            name=data.name, node_type="local", location=location,
+            storage_type="auto", raid_level="none", status="unknown",
+        )
+        self._refresh_local(node)
+        self.db.commit()
+        return self._node(node)
+
     def update_node(self, node_id: int, data) -> dict:  # noqa: ANN001
         node = self.nodes.get(node_id)
         if not node:
