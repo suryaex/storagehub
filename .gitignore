@@ -34,3 +34,7 @@ data/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Dev/design docs are local-only (never pushed)
+docs/
+/INTEROP.md
