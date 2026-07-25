@@ -110,7 +110,11 @@ class ShareService:
             return True
         return verify_password(password, share.password_hash)
 
-    def resolve_download(self, token: str, password: str | None) -> tuple[Share, str, str]:
+    def _resolve_file_share(self, token: str, password: str | None) -> tuple[Share, str, str]:
+        """Validate + locate the shared file, but do NOT consume a download
+        unit — shared by resolve_download (which increments) and
+        resolve_preview (which must not: looking at a file isn't downloading
+        it, and an exhausted-after-one-preview share is data loss)."""
         share = self._validate(token)
         if not share.file_id:
             raise NotFound("This share points to a folder, not a single file")
@@ -120,6 +124,13 @@ class ShareService:
         f = self.files.get(share.file_id)
         if not f or not storage.exists(f.storage_path):
             raise NotFound("Shared file is missing")
+        return share, f.filename, str(storage.absolute(f.storage_path))
+
+    def resolve_download(self, token: str, password: str | None) -> tuple[Share, str, str]:
+        share, filename, path = self._resolve_file_share(token, password)
         share.download_count += 1
         self.db.commit()
-        return share, f.filename, str(storage.absolute(f.storage_path))
+        return share, filename, path
+
+    def resolve_preview(self, token: str, password: str | None) -> tuple[Share, str, str]:
+        return self._resolve_file_share(token, password)

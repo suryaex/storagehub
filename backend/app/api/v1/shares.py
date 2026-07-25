@@ -75,9 +75,11 @@ def download_share(token: str, password: str | None = None, db: Session = Depend
 
 @router.get("/share/{token}/preview")
 def preview_share(token: str, password: str | None = None, db: Session = Depends(get_db)):
-    # Same authorization as download: active/expiry/max-downloads + password
-    # check all happen inside resolve_download — no second, parallel check.
-    _, filename, path = ShareService(db).resolve_download(token, password)
+    # Same authorization as download (active/expiry/max-downloads/password —
+    # all in ShareService._resolve_file_share, shared with resolve_download),
+    # but resolve_preview does NOT increment download_count: viewing a
+    # preview must not consume a limited share's download budget.
+    _, filename, path = ShareService(db).resolve_preview(token, password)
     mime = sniff_preview_mime(Path(path))
     if mime is None:
         raise PreviewNotSupported("This file type cannot be previewed")

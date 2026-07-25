@@ -132,6 +132,35 @@ def test_preview_token_scoped_and_traversal_rejected(client: TestClient):
     assert replayed.status_code == 401
 
 
+def test_share_preview_does_not_consume_download_count(client: TestClient):
+    """Regression: previewing a max_downloads=1 share must not exhaust it —
+    only an actual /download should increment download_count."""
+    h = _login(client)
+    folder_id = _root_folder(client, h)
+    file_id = _upload(client, h, folder_id, "photo.png", PNG_BYTES, "image/png")
+
+    share = client.post("/api/v1/shares", headers=h,
+                        json={"file_id": file_id, "max_downloads": 1}).json()["data"]
+    token = share["token"]
+
+    preview = client.get(f"/api/v1/share/{token}/preview")
+    assert preview.status_code == 200, preview.text
+
+    detail = client.get(f"/api/v1/shares/{share['id']}", headers=h).json()["data"]
+    assert detail["download_count"] == 0
+
+    # The single download unit must still be available after the preview.
+    download = client.get(f"/api/v1/share/{token}/download")
+    assert download.status_code == 200, download.text
+
+    detail_after = client.get(f"/api/v1/shares/{share['id']}", headers=h).json()["data"]
+    assert detail_after["download_count"] == 1
+
+    # Now the share is exhausted — preview must be refused too, not just download.
+    preview_after_exhaustion = client.get(f"/api/v1/share/{token}/preview")
+    assert preview_after_exhaustion.status_code == 410
+
+
 def test_path_traversal_attempt_rejected(client: TestClient):
     """The preview route only ever resolves file_id -> the DB-owned
     storage_path via FileService.download_path (same helper as download),
