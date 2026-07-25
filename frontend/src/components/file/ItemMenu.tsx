@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { MoreVertical, Download, Share2, Pencil, Trash2, FolderInput } from "lucide-react";
+import { MoreVertical, Eye, Download, Share2, Pencil, Trash2, FolderInput } from "lucide-react";
 import { useTranslation } from "@/i18n";
 
-export type ItemAction = "open" | "download" | "share" | "rename" | "move" | "delete";
+export type ItemAction = "open" | "preview" | "download" | "share" | "rename" | "move" | "delete";
 
 interface Props {
   isFolder: boolean;
@@ -23,7 +23,12 @@ export function ItemMenu({ isFolder, onAction }: Props) {
   }, []);
 
   const items: { action: ItemAction; label: string; icon: typeof Pencil; danger?: boolean }[] = [
-    ...(!isFolder ? [{ action: "download" as const, label: t("common.download"), icon: Download }] : []),
+    ...(!isFolder
+      ? [
+          { action: "preview" as const, label: t("common.preview"), icon: Eye },
+          { action: "download" as const, label: t("common.download"), icon: Download },
+        ]
+      : []),
     { action: "share", label: t("common.share"), icon: Share2 },
     { action: "rename", label: t("common.rename"), icon: Pencil },
     { action: "move", label: t("common.move"), icon: FolderInput },

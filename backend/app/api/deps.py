@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import jwt
-from fastapi import Depends, Header, Request
+from fastapi import Depends, Header, Query, Request
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -19,6 +19,15 @@ def _extract_token(authorization: str | None) -> str:
     return authorization.split(" ", 1)[1].strip()
 
 
+def _user_from_payload(payload: dict, db: Session) -> User:
+    user = UserRepository(db).get(int(payload["sub"]))
+    if not user or user.deleted_at is not None:
+        raise InvalidToken("User not found")
+    if user.status == "disabled":
+        raise UserDisabled("Account is disabled")
+    return user
+
+
 def get_current_user(
     authorization: str | None = Header(default=None),
     db: Session = Depends(get_db),
@@ -33,12 +42,33 @@ def get_current_user(
 
     if payload.get("type") != "access":
         raise InvalidToken("Invalid token type")
-    user = UserRepository(db).get(int(payload["sub"]))
-    if not user or user.deleted_at is not None:
-        raise InvalidToken("User not found")
-    if user.status == "disabled":
-        raise UserDisabled("Account is disabled")
-    return user
+    return _user_from_payload(payload, db)
+
+
+def get_preview_user(
+    file_id: int,
+    authorization: str | None = Header(default=None),
+    token: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+) -> User:
+    """Auth for the inline-preview route. Accepts the normal Authorization
+    header (fetch/XHR clients, e.g. the text-preview path), or, since
+    <img>/<video>/<iframe> cannot set custom headers, a short-lived
+    preview token bound to this exact file_id in the query string.
+    """
+    if authorization:
+        return get_current_user(authorization, db)
+    if not token:
+        raise InvalidToken("Missing bearer token")
+    try:
+        payload = decode_token(token)
+    except jwt.ExpiredSignatureError as exc:
+        raise InvalidToken("Preview link expired") from exc
+    except jwt.PyJWTError as exc:
+        raise InvalidToken("Invalid preview link") from exc
+    if payload.get("type") != "preview" or payload.get("fid") != file_id:
+        raise InvalidToken("Invalid preview link")
+    return _user_from_payload(payload, db)
 
 
 def get_admin_user(user: User = Depends(get_current_user)) -> User:

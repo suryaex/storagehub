@@ -43,4 +43,15 @@ export const fileService = {
     a.click();
     window.URL.revokeObjectURL(url);
   },
+
+  // Preview: <img>/<video>/<iframe> can't send an Authorization header, so a
+  // short-lived (60s), file-scoped token goes in the query string instead of
+  // the long-lived access token (see backend app/security/jwt.py).
+  mintPreviewToken: (id: number) =>
+    unwrap<{ token: string; expires_in: number }>(api.post(`/files/${id}/preview-token`)),
+
+  previewUrl: (id: number, token: string) =>
+    `${API_BASE_URL}/files/${id}/preview?token=${encodeURIComponent(token)}`,
+
+  previewText: (id: number) => api.get<string>(`/files/${id}/preview`, { responseType: "text" }),
 };

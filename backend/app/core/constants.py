@@ -23,6 +23,10 @@ RESOURCE_SESSION = "session"
 
 ROOT_FOLDER_NAME = "root"
 
+# Inline preview: text files above this size are refused (loaded whole into
+# the browser, no range support like video/images get).
+MAX_PREVIEW_TEXT_BYTES = 5 * 1024 * 1024
+
 # Default system settings (seeded on init if missing)
 DEFAULT_SETTINGS = {
     "default_user_quota": ("10737418240", "number"),

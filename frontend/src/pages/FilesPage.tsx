@@ -21,6 +21,7 @@ import { FileList } from "@/components/file/FileList";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { Spinner } from "@/components/feedback/LoadingScreen";
 import { ShareModal } from "@/components/share/ShareModal";
+import { PreviewModal } from "@/components/file/PreviewModal";
 import { PromptModal } from "@/components/common/PromptModal";
 import type { ItemAction } from "@/components/file/ItemMenu";
 import type { FileItem, Folder } from "@/types";
@@ -39,6 +40,7 @@ export function FilesPage() {
   const [dragging, setDragging] = useState(false);
 
   const [shareTarget, setShareTarget] = useState<{ file?: FileItem; folder?: Folder } | null>(null);
+  const [previewTarget, setPreviewTarget] = useState<FileItem | null>(null);
   const [newFolderOpen, setNewFolderOpen] = useState(false);
   const [renameTarget, setRenameTarget] = useState<
     { type: "file" | "folder"; id: number; name: string } | null
@@ -97,6 +99,7 @@ export function FilesPage() {
         toast(t("files.downloading"), "info");
         await fileService.download(file.id, file.filename);
       }
+      if (action === "preview") setPreviewTarget(file);
       if (action === "share") setShareTarget({ file });
       if (action === "rename")
         setRenameTarget({ type: "file", id: file.id, name: file.filename });
@@ -245,6 +248,7 @@ export function FilesPage() {
       )}
 
       <ShareModal open={!!shareTarget} onClose={() => setShareTarget(null)} target={shareTarget} />
+      <PreviewModal file={previewTarget} onClose={() => setPreviewTarget(null)} />
       <PromptModal
         open={newFolderOpen}
         title={t("files.newFolder")}

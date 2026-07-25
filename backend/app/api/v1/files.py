@@ -1,16 +1,21 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
 from fastapi.responses import FileResponse as FastAPIFileResponse
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, get_preview_user
 from app.core.constants import ACTION_DOWNLOAD_FILE, RESOURCE_FILE
 from app.db.session import get_db
+from app.exceptions.storage import PreviewNotSupported
 from app.models.user import User
 from app.repositories.activity_log_repository import ActivityLogRepository
 from app.schemas.file import FileMove, FileCopy, FileRename, FileResponse
+from app.security.jwt import create_preview_token
 from app.services.file_service import FileService
+from app.utils.mime_sniff import preview_response_headers, sniff_preview_mime
 from app.utils.response import paginated, success
 
 router = APIRouter()
@@ -50,6 +55,25 @@ def download_file(file_id: int, db: Session = Depends(get_db),
                                      resource_type=RESOURCE_FILE, resource_id=f.id)
     db.commit()
     return FastAPIFileResponse(path, filename=f.filename, media_type=f.mime_type)
+
+
+@router.post("/{file_id}/preview-token")
+def mint_preview_token(file_id: int, db: Session = Depends(get_db),
+                       user: User = Depends(get_current_user)):
+    FileService(db).get_owned(file_id, user.id)  # 404s if not owned/missing
+    return success({"token": create_preview_token(user.id, file_id), "expires_in": 60})
+
+
+@router.get("/{file_id}/preview")
+def preview_file(file_id: int, db: Session = Depends(get_db),
+                 user: User = Depends(get_preview_user)):
+    f, path = FileService(db).download_path(file_id, user.id)
+    mime = sniff_preview_mime(Path(path))
+    if mime is None:
+        raise PreviewNotSupported("This file type cannot be previewed")
+    return FastAPIFileResponse(path, media_type=mime, filename=f.filename,
+                               content_disposition_type="inline",
+                               headers=preview_response_headers())
 
 
 @router.put("/{file_id}")

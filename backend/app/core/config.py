@@ -12,7 +12,7 @@ class Settings(BaseSettings):
 
     # App
     APP_NAME: str = "StorageHub"
-    APP_VERSION: str = "1.0.6"
+    APP_VERSION: str = "1.0.7"
     APP_CHANNEL: str = "alpha"
     ENVIRONMENT: str = "development"
     SECRET_KEY: str = "change-me"

@@ -1,14 +1,18 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi import APIRouter, Depends
 from fastapi.responses import FileResponse as FastAPIFileResponse
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.db.session import get_db
+from app.exceptions.storage import PreviewNotSupported
 from app.models.user import User
 from app.schemas.share import ShareCreate, SharePasswordRequest, ShareResponse
 from app.services.share_service import ShareService
+from app.utils.mime_sniff import preview_response_headers, sniff_preview_mime
 from app.utils.response import success
 
 router = APIRouter()
@@ -67,3 +71,16 @@ def verify_share_password(token: str, payload: SharePasswordRequest,
 def download_share(token: str, password: str | None = None, db: Session = Depends(get_db)):
     _, filename, path = ShareService(db).resolve_download(token, password)
     return FastAPIFileResponse(path, filename=filename)
+
+
+@router.get("/share/{token}/preview")
+def preview_share(token: str, password: str | None = None, db: Session = Depends(get_db)):
+    # Same authorization as download: active/expiry/max-downloads + password
+    # check all happen inside resolve_download — no second, parallel check.
+    _, filename, path = ShareService(db).resolve_download(token, password)
+    mime = sniff_preview_mime(Path(path))
+    if mime is None:
+        raise PreviewNotSupported("This file type cannot be previewed")
+    return FastAPIFileResponse(path, media_type=mime, filename=filename,
+                               content_disposition_type="inline",
+                               headers=preview_response_headers())

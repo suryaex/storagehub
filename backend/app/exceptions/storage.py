@@ -37,3 +37,8 @@ class ShareExpired(AppException):
 class ShareDisabled(AppException):
     status_code = 410
     code = "SHARE_DISABLED"
+
+
+class PreviewNotSupported(AppException):
+    status_code = 415
+    code = "PREVIEW_NOT_SUPPORTED"

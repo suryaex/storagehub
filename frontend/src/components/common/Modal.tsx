@@ -7,9 +7,12 @@ interface Props {
   title?: string;
   children: ReactNode;
   footer?: ReactNode;
+  size?: "md" | "xl";
 }
 
-export function Modal({ open, onClose, title, children, footer }: Props) {
+const SIZE_CLASS = { md: "max-w-md", xl: "max-w-3xl" };
+
+export function Modal({ open, onClose, title, children, footer, size = "md" }: Props) {
   if (!open) return null;
   return (
     <div
@@ -17,7 +20,7 @@ export function Modal({ open, onClose, title, children, footer }: Props) {
       onClick={onClose}
     >
       <div
-        className="glass-strong w-full max-w-md animate-scale-in rounded-t-xl rounded-b-none sm:rounded-xl"
+        className={`glass-strong w-full ${SIZE_CLASS[size]} animate-scale-in rounded-t-xl rounded-b-none sm:rounded-xl`}
         onClick={(e) => e.stopPropagation()}
       >
         {title && (
