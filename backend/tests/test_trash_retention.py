@@ -20,7 +20,10 @@ os.environ["ALLOW_LOCAL_LOGIN"] = "true"
 from fastapi.testclient import TestClient  # noqa: E402
 
 import app.main as m  # noqa: E402
+from app.core.config import settings  # noqa: E402
 from app.db.session import SessionLocal  # noqa: E402
+from app.models.file import File  # noqa: E402
+from app.models.folder import Folder  # noqa: E402
 from app.models.trash_item import TrashItem  # noqa: E402
 from app.models.user import User  # noqa: E402
 
@@ -61,6 +64,102 @@ def _upload(c: TestClient, h: dict, folder_id: int, filename: str, content: byte
                data={"folder_id": str(folder_id)})
     assert up.status_code == 200, up.text
     return up.json()["data"]["id"]
+
+
+def _create_folder(c: TestClient, h: dict, parent_id: int, name: str) -> int:
+    r = c.post("/api/v1/folders", headers=h, json={"parent_id": parent_id, "name": name})
+    assert r.status_code == 200, r.text
+    return r.json()["data"]["id"]
+
+
+def _blob_path(file_id: int) -> str:
+    with SessionLocal() as db:
+        f = db.get(File, file_id)
+        return os.path.join(settings.STORAGE_ROOT, f.storage_path)
+
+
+def test_purge_folder_deletes_child_blob_and_refunds_quota(client: TestClient):
+    _set_retention(client, -1)
+    h = _login(client, "retention-folder1@example.com")
+    root_id = _root_folder(client, h)
+    folder_id = _create_folder(client, h, root_id, "sub")
+    file_id = _upload(client, h, folder_id, "child.txt", b"hello world")
+    blob = _blob_path(file_id)
+    assert os.path.exists(blob)
+
+    del_resp = client.delete(f"/api/v1/folders/{folder_id}", headers=h)
+    assert del_resp.status_code == 200, del_resp.text
+
+    # Listing trash purges the expired folder (and its file) as a side effect.
+    trash = client.get("/api/v1/trash", headers=h).json()["data"]
+    assert trash == []
+
+    assert not os.path.exists(blob)
+    used_after = client.get("/api/v1/users/me", headers=h).json()["data"]["used_bytes"]
+    assert used_after == 0
+    assert client.get(f"/api/v1/files/{file_id}", headers=h).status_code == 404
+    with SessionLocal() as db:
+        assert db.get(Folder, folder_id) is None
+
+
+def test_purge_nested_folder_deletes_all_descendant_blobs_and_quota(client: TestClient):
+    _set_retention(client, -1)
+    h = _login(client, "retention-folder2@example.com")
+    root_id = _root_folder(client, h)
+    parent_id = _create_folder(client, h, root_id, "parent")
+    child_id = _create_folder(client, h, parent_id, "child")
+    file_a = _upload(client, h, parent_id, "a.txt", b"in parent")
+    file_b = _upload(client, h, child_id, "b.txt", b"in nested child")
+    blob_a, blob_b = _blob_path(file_a), _blob_path(file_b)
+    assert os.path.exists(blob_a) and os.path.exists(blob_b)
+
+    client.delete(f"/api/v1/folders/{parent_id}", headers=h)
+    trash = client.get("/api/v1/trash", headers=h).json()["data"]
+    assert trash == []
+
+    assert not os.path.exists(blob_a)
+    assert not os.path.exists(blob_b)
+    used_after = client.get("/api/v1/users/me", headers=h).json()["data"]["used_bytes"]
+    assert used_after == 0
+    with SessionLocal() as db:
+        assert db.get(Folder, parent_id) is None
+        assert db.get(Folder, child_id) is None
+
+
+def test_purge_folder_survives_already_missing_blob(client: TestClient):
+    _set_retention(client, -1)
+    h = _login(client, "retention-folder3@example.com")
+    root_id = _root_folder(client, h)
+    folder_id = _create_folder(client, h, root_id, "sub")
+    file_id = _upload(client, h, folder_id, "gone.txt", b"vanish")
+    os.remove(_blob_path(file_id))  # simulate blob already lost on disk
+
+    del_resp = client.delete(f"/api/v1/folders/{folder_id}", headers=h)
+    assert del_resp.status_code == 200, del_resp.text
+
+    trash = client.get("/api/v1/trash", headers=h).json()["data"]
+    assert trash == []  # purge did not raise despite the missing blob
+    used_after = client.get("/api/v1/users/me", headers=h).json()["data"]["used_bytes"]
+    assert used_after == 0
+
+
+def test_purge_does_not_touch_other_users_files(client: TestClient):
+    _set_retention(client, -1)
+    h1 = _login(client, "retention-owner1@example.com")
+    h2 = _login(client, "retention-owner2@example.com")
+    root2 = _root_folder(client, h2)
+    other_file_id = _upload(client, h2, root2, "keep.txt", b"not yours")
+
+    root1 = _root_folder(client, h1)
+    folder_id = _create_folder(client, h1, root1, "sub")
+    _upload(client, h1, folder_id, "mine.txt", b"delete me")
+    client.delete(f"/api/v1/folders/{folder_id}", headers=h1)
+    client.get("/api/v1/trash", headers=h1).json()["data"]  # triggers purge for user1 only
+
+    detail = client.get(f"/api/v1/files/{other_file_id}", headers=h2)
+    assert detail.status_code == 200
+    used2 = client.get("/api/v1/users/me", headers=h2).json()["data"]["used_bytes"]
+    assert used2 == len(b"not yours")
 
 
 def test_expired_trash_item_purged_on_list(client: TestClient):

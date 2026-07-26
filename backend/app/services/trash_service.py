@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from app.exceptions.base import NotFound
+from app.models.folder import Folder
 from app.repositories.file_repository import FileRepository
 from app.repositories.folder_repository import FolderRepository
 from app.repositories.trash_repository import TrashRepository
@@ -80,6 +81,24 @@ class TrashService:
         else:
             folder = self.folders.get_owned(item.item_id, user_id)
             if folder:
-                self.db.delete(folder)
+                self._purge_folder_tree(folder, user_id)
         self.trash.delete(item)
         self.db.commit()
+
+    def _purge_folder_tree(self, root: Folder, user_id: int) -> None:
+        """Delete every file under root (recursively) through the same
+        FileService.permanent_delete path used for single-file trash items,
+        so blob removal and quota refund stay in one place, then drop the
+        now-empty folder rows. Iterative (stack) to avoid deep recursion on
+        deep trees. Ownership is enforced by list_children/list_in_folder
+        only ever walking folders/files owned by user_id."""
+        folders = []
+        stack = [root]
+        while stack:
+            folder = stack.pop()
+            folders.append(folder)
+            stack.extend(self.folders.list_children(user_id, folder.id, include_deleted=True))
+            for f in self.files.list_in_folder(user_id, folder.id, include_deleted=True):
+                self.file_service.permanent_delete(f.id, user_id)
+        for folder in folders:
+            self.db.delete(folder)
