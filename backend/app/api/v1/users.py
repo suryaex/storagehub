@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_admin_user, get_current_user
 from app.db.session import get_db
 from app.models.user import User
+from app.repositories.activity_log_repository import ActivityLogRepository
+from app.schemas.admin import ActivityLogResponse
 from app.schemas.user import ProfileUpdate, UserResponse, UserUpdate
 from app.services.user_service import UserService
 from app.utils.response import paginated, success
@@ -27,6 +31,19 @@ def update_my_profile(payload: ProfileUpdate, db: Session = Depends(get_db),
                       user: User = Depends(get_current_user)):
     updated = UserService(db).update_profile(user.id, payload.full_name)
     return success(_ser(updated), "Profile updated")
+
+
+@router.get("/me/activity-logs")
+def my_activity_logs(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=200),
+                     action: str | None = None, date_from: datetime | None = None,
+                     date_to: datetime | None = None, db: Session = Depends(get_db),
+                     user: User = Depends(get_current_user)):
+    """A user's own activity log. user_id is forced to the authenticated
+    caller server-side (never taken from the client) — that's the whole
+    IDOR guard, see tests/test_activity_log.py::test_own_log_scoped_to_self."""
+    items, total = ActivityLogRepository(db).list(page, limit, action, user.id, date_from, date_to)
+    data = [ActivityLogResponse.model_validate(i).model_dump(mode="json") for i in items]
+    return success(paginated(data, page, limit, total))
 
 
 @router.get("")

@@ -1,5 +1,7 @@
-"""Trash list / restore / permanent delete."""
+"""Trash list / restore / permanent delete / retention purge."""
 from __future__ import annotations
+
+from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
@@ -20,7 +22,25 @@ class TrashService:
         self.file_service = FileService(db)
         self.folder_service = FolderService(db)
 
+    def purge_expired(self, user_id: int) -> int:
+        """Permanently delete trash items past their retention window.
+        ponytail: purge is opportunistic — triggered by listing/restoring
+        trash, no cron/daemon. Trash from an account that never revisits
+        Trash won't self-purge; add an admin sweep endpoint if that
+        matters in practice."""
+        now = datetime.now(timezone.utc)
+        purged = 0
+        for item in self.trash.list_expirable(user_id):
+            exp = item.expires_at
+            if exp.tzinfo is None:
+                exp = exp.replace(tzinfo=timezone.utc)
+            if exp < now:
+                self.permanent_delete(item.id, user_id)
+                purged += 1
+        return purged
+
     def list(self, user_id: int) -> list[dict]:
+        self.purge_expired(user_id)
         items = self.trash.list_for_user(user_id)
         result = []
         for item in items:
@@ -39,6 +59,10 @@ class TrashService:
         return result
 
     def restore(self, trash_id: int, user_id: int) -> None:
+        # Purge first: if this exact item is past retention it gets deleted
+        # here (blob + row), so the get_owned below correctly 404s instead
+        # of resurrecting a record whose blob may already be gone.
+        self.purge_expired(user_id)
         item = self.trash.get_owned(trash_id, user_id)
         if not item:
             raise NotFound("Trash item not found")

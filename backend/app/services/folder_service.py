@@ -5,7 +5,12 @@ from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
-from app.core.constants import ACTION_CREATE_FOLDER, ACTION_DELETE_FOLDER, RESOURCE_FOLDER
+from app.core.constants import (
+    ACTION_CREATE_FOLDER,
+    ACTION_DELETE_FOLDER,
+    ACTION_RESTORE_FOLDER,
+    RESOURCE_FOLDER,
+)
 from app.exceptions.base import Conflict, NotFound, ValidationError
 from app.exceptions.storage import FolderNotFound
 from app.models.folder import Folder
@@ -14,6 +19,7 @@ from app.repositories.file_repository import FileRepository
 from app.repositories.folder_repository import FolderRepository
 from app.repositories.trash_repository import TrashRepository
 from app.utils.files import sanitize_filename
+from app.utils.retention import trash_expiry
 
 
 class FolderService:
@@ -95,7 +101,7 @@ class FolderService:
         folder.is_deleted = True
         folder.deleted_at = now
         self.trash.create(user_id=user_id, item_type="folder", item_id=folder.id,
-                          original_path=folder.path)
+                          original_path=folder.path, expires_at=trash_expiry(self.db))
         self.logs.create(user_id=user_id, action=ACTION_DELETE_FOLDER,
                          resource_type=RESOURCE_FOLDER, resource_id=folder.id)
         self.db.commit()
@@ -109,5 +115,7 @@ class FolderService:
         item = self.trash.find(user_id, "folder", folder.id)
         if item:
             item.restored_at = datetime.now(timezone.utc)
+        self.logs.create(user_id=user_id, action=ACTION_RESTORE_FOLDER,
+                         resource_type=RESOURCE_FOLDER, resource_id=folder.id)
         self.db.commit()
         return folder

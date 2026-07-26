@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.constants import (
     ACTION_DELETE_FILE,
+    ACTION_RESTORE_FILE,
     ACTION_UPLOAD_FILE,
     RESOURCE_FILE,
 )
@@ -22,6 +23,7 @@ from app.repositories.user_repository import UserRepository
 from app.services.storage_service import storage
 from app.utils.checksum import sha256_file
 from app.utils.files import sanitize_filename, split_extension
+from app.utils.retention import trash_expiry
 
 
 class FileService:
@@ -118,7 +120,7 @@ class FileService:
         f.is_deleted = True
         f.deleted_at = datetime.now(timezone.utc)
         self.trash.create(user_id=user_id, item_type="file", item_id=f.id,
-                          original_path=f.storage_path)
+                          original_path=f.storage_path, expires_at=trash_expiry(self.db))
         self.logs.create(user_id=user_id, action=ACTION_DELETE_FILE,
                          resource_type=RESOURCE_FILE, resource_id=f.id)
         self.db.commit()
@@ -132,6 +134,8 @@ class FileService:
         item = self.trash.find(user_id, "file", f.id)
         if item:
             item.restored_at = datetime.now(timezone.utc)
+        self.logs.create(user_id=user_id, action=ACTION_RESTORE_FILE,
+                         resource_type=RESOURCE_FILE, resource_id=f.id)
         self.db.commit()
         return f
 

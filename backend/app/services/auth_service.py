@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.constants import ACTION_LOGIN, RESOURCE_USER, ROOT_FOLDER_NAME
+from app.core.constants import ACTION_LOGIN, ACTION_LOGIN_FAILED, RESOURCE_SESSION, RESOURCE_USER, ROOT_FOLDER_NAME
 from app.exceptions.auth import InvalidToken, UserDisabled
 from app.models.user import User
 from app.repositories.activity_log_repository import ActivityLogRepository
@@ -49,8 +49,12 @@ class AuthService:
         )
         return user
 
-    def local_login(self, email: str, full_name: str | None) -> User:
+    def local_login(self, email: str, full_name: str | None,
+                    ip: str | None = None, ua: str | None = None) -> User:
         if not settings.ALLOW_LOCAL_LOGIN:
+            self.logs.create(user_id=None, action=ACTION_LOGIN_FAILED, resource_type=RESOURCE_SESSION,
+                             ip_address=ip, user_agent=ua, metadata_json={"reason": "local_login_disabled"})
+            self.db.commit()
             raise InvalidToken("Local login is disabled")
         user = self.users.get_by_email(email)
         if not user:
@@ -81,6 +85,9 @@ class AuthService:
     # ── tokens ──
     def issue_tokens(self, user: User, ip: str | None = None, ua: str | None = None) -> tuple[str, str, int]:
         if user.status == "disabled":
+            self.logs.create(user_id=user.id, action=ACTION_LOGIN_FAILED, resource_type=RESOURCE_SESSION,
+                             ip_address=ip, user_agent=ua, metadata_json={"reason": "account_disabled"})
+            self.db.commit()
             raise UserDisabled("Account is disabled")
         access = create_access_token(user.id, {"role": user.role})
         raw_refresh = generate_refresh_token()

@@ -2,6 +2,7 @@
 
 # Activity log actions
 ACTION_LOGIN = "login"
+ACTION_LOGIN_FAILED = "login_failed"
 ACTION_LOGOUT = "logout"
 ACTION_UPLOAD_FILE = "upload_file"
 ACTION_DOWNLOAD_FILE = "download_file"
@@ -9,6 +10,7 @@ ACTION_DELETE_FILE = "delete_file"
 ACTION_RESTORE_FILE = "restore_file"
 ACTION_CREATE_FOLDER = "create_folder"
 ACTION_DELETE_FOLDER = "delete_folder"
+ACTION_RESTORE_FOLDER = "restore_folder"
 ACTION_SHARE_CREATED = "share_created"
 ACTION_SHARE_REVOKED = "share_revoked"
 ACTION_ADMIN_UPDATE_USER = "admin_update_user"

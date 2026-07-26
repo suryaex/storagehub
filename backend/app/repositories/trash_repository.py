@@ -28,6 +28,18 @@ class TrashRepository:
             .order_by(TrashItem.deleted_at.desc())
         ).all())
 
+    def list_expirable(self, user_id: int) -> list[TrashItem]:
+        """Candidates for purge: not restored, has an expiry set. Caller does
+        the actual timezone-safe `expires_at < now` compare in Python, same
+        convention as RefreshTokenRepository.is_valid / ShareService._validate."""
+        return list(self.db.scalars(
+            select(TrashItem).where(
+                TrashItem.user_id == user_id,
+                TrashItem.restored_at.is_(None),
+                TrashItem.expires_at.is_not(None),
+            )
+        ).all())
+
     def find(self, user_id: int, item_type: str, item_id: int) -> TrashItem | None:
         return self.db.scalar(
             select(TrashItem).where(

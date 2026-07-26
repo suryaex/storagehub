@@ -50,8 +50,8 @@ async def callback(provider: str, request: Request,
 def local_login(payload: LocalLoginRequest, request: Request, db: Session = Depends(get_db)):
     """Passwordless development login (guarded by ALLOW_LOCAL_LOGIN)."""
     service = AuthService(db)
-    user = service.local_login(payload.email, payload.full_name)
     meta = client_meta(request)
+    user = service.local_login(payload.email, payload.full_name, meta["ip"], meta["ua"])
     access, refresh, expires_in = service.issue_tokens(user, meta["ip"], meta["ua"])
     return success({
         "access_token": access, "refresh_token": refresh,
